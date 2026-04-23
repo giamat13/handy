@@ -46,10 +46,12 @@ smooth_x    = None
 smooth_y    = None
 prev_hand_x = None
 prev_hand_y = None
+smooth_dx   = 0.0
+smooth_dy   = 0.0
 
 # ── הגדרות (ניתן לשנות דרך חלון ההגדרות) ──────────────────────────
 SMOOTH          = 7      # 0=עצלן 100=מהיר (100 = 0.07 הישן)
-SPEED           = 3      # מכפיל מהירות עכבר
+SPEED           = 5      # מכפיל מהירות עכבר
 CAM_MARGIN      = 0.15   # חתך משולי המצלמה למיפוי מלא למסך
 DEADZONE        = 8      # פיקסלים - מתחת לזה לא זז
 MOUSE_ENABLED   = True   # האם לשלוט בעכבר
@@ -375,7 +377,7 @@ def _show_settings_window():
     root.protocol("WM_DELETE_WINDOW", on_close)
 
 def move_mouse(lm_list, gesture):
-    global smooth_x, smooth_y, last_click, prev_hand_x, prev_hand_y
+    global smooth_x, smooth_y, last_click, prev_hand_x, prev_hand_y, smooth_dx, smooth_dy
     if not MOUSE_ENABLED:
         return
     tx, ty = lm_list[8][0], lm_list[8][1]
@@ -387,13 +389,18 @@ def move_mouse(lm_list, gesture):
         cx, cy = pyautogui.position()
         smooth_x, smooth_y = cx, cy
         return
-    dx = (tx - prev_hand_x) * SCREEN_W * (SMOOTH / 7) * SPEED
-    dy = (ty - prev_hand_y) * SCREEN_H * (SMOOTH / 7) * SPEED
+    dx_raw = (tx - prev_hand_x) * SCREEN_W * SPEED * 0.5
+    dy_raw = (ty - prev_hand_y) * SCREEN_H * SPEED * 0.5
     prev_hand_x, prev_hand_y = tx, ty
-    smooth_x = max(0, min(SCREEN_W - 1, int(smooth_x + dx)))
-    smooth_y = max(0, min(SCREEN_H - 1, int(smooth_y + dy)))
-    if abs(dx) > DEADZONE or abs(dy) > DEADZONE:
-        pyautogui.moveTo(smooth_x, smooth_y)
+    s = SMOOTH / 100
+    smooth_dx = smooth_dx + s * (dx_raw - smooth_dx)
+    smooth_dy = smooth_dy + s * (dy_raw - smooth_dy)
+    if abs(smooth_dx) < DEADZONE and abs(smooth_dy) < DEADZONE:
+        smooth_dx, smooth_dy = 0.0, 0.0
+        return
+    smooth_x = max(0, min(SCREEN_W - 1, int(smooth_x + smooth_dx)))
+    smooth_y = max(0, min(SCREEN_H - 1, int(smooth_y + smooth_dy)))
+    pyautogui.moveTo(smooth_x, smooth_y)
     if gesture == "4 Fingers" and time.time() - last_click > CLICK_COOLDOWN:
         pyautogui.click()
         last_click = time.time()
