@@ -151,7 +151,7 @@ CONTROL_HAND    = "Right" # איזו יד שולטת - Right/Left/Both
 CLICK_COOLDOWN  = 0.6    # שניות בין קליקים
 SHOW_TRAIL      = True   # הצג שובל
 SHOW_COORDS     = True   # הצג קואורדינטות
-screen_hidden   = False  # האם החלון מוסתר (ממשיך לרוץ ברקע)
+
 
 HAND_CONNECTIONS = [
     (0,1),(1,2),(2,3),(3,4),
@@ -368,7 +368,7 @@ def draw_info_box(frame, label, wx, wy, color):
 def draw_ui(frame, fps, hand_count):
     h, w = frame.shape[:2]
     cv2.rectangle(frame, (0,0), (w,50), (10,10,10), -1)
-    hint = "ESC=quit  S=screenshot  G=settings  H=hide" + ("  R=reload" if DEBUG_MODE else "")
+    hint = "ESC=quit  S=screenshot  G=settings" + ("  R=reload" if DEBUG_MODE else "")
     cv2.putText(frame, f"HANDY  |  {hint}",
                 (12,32), cv2.FONT_HERSHEY_SIMPLEX, 0.6, COLOR_TEXT, 1, cv2.LINE_AA)
     cv2.putText(frame, f"FPS: {fps:.0f}", (w-120,32),
@@ -750,7 +750,7 @@ def main():
     root.mainloop()
 
 def run_camera():
-    global prev_time, camera_ready, settings_open, screen_hidden
+    global prev_time, camera_ready, settings_open
     set_status("Opening camera...")
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
@@ -804,31 +804,13 @@ def run_camera():
                 hand_count = process_frame(frame, h, w)
                 draw_ui(frame, fps_avg, hand_count)
 
-        # אם המסך מוסתר — לא מציגים חלון, רק מעבדים
-        if not screen_hidden:
-            cv2.imshow("Handy", frame)
-        else:
-            # וודא שהחלון סגור
-            try:
-                cv2.destroyWindow("Handy")
-            except Exception:
-                pass
+        cv2.imshow("Handy", frame)
 
         key = cv2.waitKey(1) & 0xFF
         if key == 27:  # ESC — יציאה מלאה
             break
-        elif key in (ord('h'), ord('H')):
-            # סגור את המסך אבל המשך לרוץ ברקע
-            screen_hidden = True
-            try:
-                cv2.destroyWindow("Handy")
-            except Exception:
-                pass
-            print("[HANDY] Window hidden — control still active. Relaunch EXE to show again.")
-        elif not screen_hidden and cv2.getWindowProperty("Handy", cv2.WND_PROP_VISIBLE) < 1:
-            # המשתמש סגר את החלון ידנית — גם זה נחשב כהסתרה (המשך לרוץ)
-            screen_hidden = True
-            print("[HANDY] Window closed — control still active. Relaunch EXE to show again.")
+        elif cv2.getWindowProperty("Handy", cv2.WND_PROP_VISIBLE) < 1:
+            break
         elif key in (ord('g'), ord('G')):
             if not settings_open:
                 settings_open = True
