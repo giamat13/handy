@@ -797,4 +797,32 @@ def run_camera():
 if __name__ == "__main__":
     import sys as _sys
     FAST_RELOAD = "--fast-reload" in _sys.argv
-    main()
+
+    if "--build" in _sys.argv:
+        # בנה את עצמך עם --noconsole
+        import subprocess, os, shutil
+        script = os.path.abspath(__file__)
+        src_dir = os.path.dirname(script)
+        pyinstaller = shutil.which("pyinstaller")
+        cmd = [pyinstaller or (_sys.executable + " -m PyInstaller")]
+        if not pyinstaller:
+            cmd = [_sys.executable, "-m", "PyInstaller"]
+        cmd += ["--onefile", "--noconsole", "--clean", "--name", "Handy", script]
+        print("[BUILD] Running:", " ".join(cmd))
+        subprocess.run(cmd, cwd=src_dir)
+        # העבר את ה-EXE מ-dist לתיקייה הראשית
+        dist_exe = os.path.join(src_dir, "dist", "Handy.exe")
+        final_exe = os.path.join(src_dir, "Handy.exe")
+        if os.path.exists(dist_exe):
+            if os.path.exists(final_exe):
+                os.remove(final_exe)
+            shutil.move(dist_exe, final_exe)
+            print(f"[BUILD] Done: {final_exe}")
+        # נקה
+        for d in ["build", "dist"]:
+            shutil.rmtree(os.path.join(src_dir, d), ignore_errors=True)
+        spec = os.path.join(src_dir, "Handy.spec")
+        if os.path.exists(spec):
+            os.remove(spec)
+    else:
+        main()
