@@ -12,6 +12,12 @@ def install_deps():
     for pkg in pkgs:9
 install_deps()
 
+# הסתר חלון CMD על Windows (רלוונטי כשרצים כ-.py, לא כ-EXE עם --noconsole)
+import sys as _sys, os as _os
+if _sys.platform == "win32":
+    import ctypes
+    ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
+
 import cv2
 import numpy as np
 import time
@@ -245,11 +251,21 @@ def load_model():
         USE_NEW_API = True
         set_status("Model ready (new API)")
 
-    except Exception:
+    except Exception as new_api_err:
+        print(f"[new API failed: {new_api_err}]")
         try:
             set_status("Trying legacy mediapipe API...")
-            mp_hands  = mp.solutions.hands
-            mp_draw   = mp.solutions.drawing_utils
+            import mediapipe as _mp
+            # תמיכה בגרסאות ישנות וחדשות כאחד
+            if hasattr(_mp, 'solutions'):
+                mp_hands = _mp.solutions.hands
+                mp_draw  = _mp.solutions.drawing_utils
+            else:
+                # גרסאות חדשות — ייבוא ישיר
+                from mediapipe.python.solutions import hands as _hands_mod
+                from mediapipe.python.solutions import drawing_utils as _draw_mod
+                mp_hands = _hands_mod
+                mp_draw  = _draw_mod
             hands_old = mp_hands.Hands(
                 static_image_mode=False,
                 max_num_hands=2,
