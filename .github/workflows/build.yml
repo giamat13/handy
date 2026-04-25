@@ -52,7 +52,7 @@ jobs:
 
       - name: Zip macOS portable app bundle
         if: runner.os == 'macOS'
-        run: cd release && zip -r Handy-macOS.zip Handy.app
+        run: cd release && zip -r Handy-macOS.zip main.app
 
       - name: Build installer (Windows)
         if: runner.os == 'Windows'
@@ -64,7 +64,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           pkgbuild \
-            --component release/Handy.app \
+            --component release/main.app \
             --identifier com.handy.app \
             --version ${{ github.ref_name }} \
             --install-location /Applications \
