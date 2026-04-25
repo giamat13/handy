@@ -50,11 +50,67 @@ jobs:
       - name: Build with Nuitka
         run: python build_nuitka.py
 
-      - name: Upload artifact
+      - name: Build installer (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install innosetup --no-progress -y
+          iscc /DMyAppVersion=${{ github.ref_name }} installer/HandySetup.iss
+
+      - name: Build installer (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p dist_pkg
+          cp release/Handy dist_pkg/
+          pkgbuild \
+            --root dist_pkg \
+            --identifier com.handy.app \
+            --version ${{ github.ref_name }} \
+            --install-location /Applications \
+            release/Handy-Installer.pkg
+
+      - name: Build installer (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          VERSION=${{ github.ref_name }}
+          VERSION=${VERSION#v}
+          mkdir -p deb_pkg/usr/local/bin
+          mkdir -p deb_pkg/DEBIAN
+          cp release/Handy deb_pkg/usr/local/bin/Handy
+          cat > deb_pkg/DEBIAN/control << EOF
+          Package: handy
+          Version: ${VERSION}
+          Architecture: amd64
+          Maintainer: Handy
+          Description: Handy - Hand gesture control
+          EOF
+          dpkg-deb --build deb_pkg release/Handy-Installer.deb
+
+      - name: Upload portable artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Handy-${{ runner.os }}
+          name: Handy-${{ runner.os }}-portable
           path: release/${{ matrix.artifact_name }}
+
+      - name: Upload installer artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Handy-Windows-installer
+          path: release/Handy-Setup.exe
+
+      - name: Upload installer artifact (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Handy-macOS-installer
+          path: release/Handy-Installer.pkg
+
+      - name: Upload installer artifact (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Handy-Linux-installer
+          path: release/Handy-Installer.deb
 
   release:
     name: Create GitHub Release
@@ -70,14 +126,23 @@ jobs:
 
       - name: Rename artifacts
         run: |
-          mv artifacts/Handy-Windows/Handy.exe artifacts/Handy-Windows.exe
-          mv artifacts/Handy-Linux/Handy     artifacts/Handy-Linux
-          mv artifacts/Handy-macOS/Handy     artifacts/Handy-macOS
+          # Portable
+          mv artifacts/Handy-Windows-portable/Handy.exe  artifacts/Handy-Windows.exe
+          mv artifacts/Handy-Linux-portable/Handy         artifacts/Handy-Linux
+          mv artifacts/Handy-macOS-portable/Handy         artifacts/Handy-macOS
+
+          # Installers
+          mv artifacts/Handy-Windows-installer/Handy-Setup.exe  artifacts/Handy-Windows-Setup.exe
+          mv artifacts/Handy-macOS-installer/Handy-Installer.pkg artifacts/Handy-macOS-Installer.pkg
+          mv artifacts/Handy-Linux-installer/Handy-Installer.deb  artifacts/Handy-Linux-Installer.deb
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             artifacts/Handy-Windows.exe
+            artifacts/Handy-Windows-Setup.exe
             artifacts/Handy-Linux
+            artifacts/Handy-Linux-Installer.deb
             artifacts/Handy-macOS
+            artifacts/Handy-macOS-Installer.pkg
