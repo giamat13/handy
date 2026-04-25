@@ -42,8 +42,6 @@ def build() -> None:
 
     cmd = [
         sys.executable, "-m", "nuitka",
-        "--standalone",
-        "--onefile",
         "--enable-plugin=tk-inter",
         "--include-package=customtkinter",
         "--include-package=mediapipe",
@@ -60,6 +58,8 @@ def build() -> None:
         BUILD_ROOT.mkdir(exist_ok=True)
         ensure_windows_icon()
         cmd += [
+            "--standalone",
+            "--onefile",
             f"--windows-icon-from-ico={ICON_ICO_PATH}",
             "--windows-disable-console",
         ]
@@ -67,6 +67,11 @@ def build() -> None:
         cmd += [
             "--mode=app",
             "--macos-app-name=Handy",
+        ]
+    else:
+        cmd += [
+            "--standalone",
+            "--onefile",
         ]
 
     cmd.append(str(PROJECT_ROOT / "main.py"))
