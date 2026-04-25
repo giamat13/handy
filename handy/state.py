@@ -67,3 +67,18 @@ prev_time: float = time.time()
 
 # ── Trails ─────────────────────────────────────────────────────────
 trails: dict = {}
+
+# ── Custom gestures ────────────────────────────────────────────────
+# list[custom_gestures.GestureTemplate] — populated from settings_io.load()
+CUSTOM_GESTURE_TEMPLATES: list = []
+
+# {gesture_name: {"type": "none"|"hotkey"|"script", "value": str}}
+# — covers both custom and built-in gestures
+GESTURE_BINDINGS: dict = {}
+
+# Recording state (written by gesture_trainer UI, read by camera thread)
+recording_gesture: bool = False       # True while the trainer is capturing
+recording_samples: list = []          # accumulated normalized (21,2) arrays
+
+# ── Gesture trainer window ─────────────────────────────────────────
+gesture_trainer_open: bool = False

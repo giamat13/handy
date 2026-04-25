@@ -1,4 +1,8 @@
-"""Gesture recognition — pure functions, no side effects."""
+"""Gesture recognition — pure functions, no side effects.
+
+classify_gesture()         — original built-in classifier (unchanged)
+classify_with_custom()     — checks custom templates first, then falls back
+"""
 
 import numpy as np
 
@@ -34,6 +38,7 @@ def is_fist(lm_list: list) -> bool:
 
 
 def classify_gesture(up: list[bool], lm_list: list) -> str:
+    """Original built-in gesture classifier. Returns a gesture name string."""
     if is_fist(lm_list):
         return "Fist"
     count = sum(up)
@@ -48,3 +53,26 @@ def classify_gesture(up: list[bool], lm_list: list) -> str:
     if up[0] and not any(up[1:]):
         return "Thumbs Up"
     return f"{count} Fingers"
+
+
+def classify_with_custom(up: list[bool], lm_list: list, custom_templates: list) -> str:
+    """
+    Full gesture classifier: custom templates take priority over built-in.
+
+    1. Run custom gesture matching against trained templates.
+    2. If a custom gesture matches (above confidence threshold), return it.
+    3. Otherwise fall back to the original built-in classifier.
+
+    Parameters
+    ----------
+    up              : output of fingers_up()
+    lm_list         : raw landmark list from MediaPipe
+    custom_templates: list[GestureTemplate] from state.CUSTOM_GESTURE_TEMPLATES
+    """
+    if custom_templates:
+        from .custom_gestures import match_custom_gesture
+        custom_hit = match_custom_gesture(lm_list, custom_templates)
+        if custom_hit:
+            return custom_hit
+
+    return classify_gesture(up, lm_list)

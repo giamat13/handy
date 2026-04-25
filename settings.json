@@ -1,0 +1,20 @@
+{
+  "SMOOTH": 7,
+  "SPEED": 5,
+  "DYNAMIC_SPEED": true,
+  "SPEED_CURVE": 2.0,
+  "CAM_MARGIN": 0.15,
+  "DEADZONE": 8,
+  "MOUSE_ENABLED": false,
+  "CONTROL_HAND": "Right",
+  "CLICK_COOLDOWN": 0.6,
+  "SHOW_TRAIL": true,
+  "SHOW_COORDS": true,
+  "SHOW_LANDMARKS": true,
+  "GESTURE_BINDINGS": {
+    "test": {
+      "type": "none",
+      "value": ""
+    }
+  }
+}

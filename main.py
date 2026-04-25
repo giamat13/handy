@@ -18,6 +18,7 @@ from handy.mouse import init_screen_size
 from handy.settings_io import load as load_settings
 from handy.ui.loading import show_loading_window
 from handy.ui.settings import show_settings_window
+from handy.ui.gesture_trainer import show_gesture_trainer
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
@@ -30,6 +31,8 @@ def _check_queue(root: ctk.CTk) -> None:
             print(f"[UI] queue message: {msg}")
             if msg == "open_settings":
                 show_settings_window(root)
+            elif msg == "open_gesture_trainer":
+                show_gesture_trainer(root)
     except queue.Empty:
         pass
     except Exception as exc:

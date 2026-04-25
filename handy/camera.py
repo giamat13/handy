@@ -11,6 +11,7 @@ import mediapipe as mp
 
 import handy.state as state
 from .config import COLOR_LEFT, COLOR_RIGHT, MAX_TRAIL
+from .custom_gestures import normalize_landmarks, RECORD_SAMPLES
 from .drawing import (
     draw_info_box,
     draw_loading,
@@ -18,16 +19,12 @@ from .drawing import (
     draw_trail,
     draw_ui,
 )
-from .gesture import classify_gesture, fingers_up
+from .gesture import classify_with_custom, fingers_up
 from .mouse import move_mouse, reset_anchor
+from .actions import execute_action
 
 
 def _key_matches(key: int, chars: str) -> bool:
-    """Return True when key matches any character in *chars*.
-
-    `waitKeyEx` may return either unicode code points or a low-byte code,
-    so we check both forms for reliability across keyboard layouts.
-    """
     if key < 0:
         return False
     low = key & 0xFF
@@ -48,7 +45,26 @@ def _key_to_debug(key: int) -> str:
     return f"key={key} low={low} char={ch}"
 
 
-# ── Frame processing ───────────────────────────────────────────────
+# ── Recording overlay ──────────────────────────────────────────────────────
+
+def _draw_recording_overlay(frame, h: int, w: int) -> None:
+    """Show a pulsing REC indicator and sample count while capturing."""
+    n = len(state.recording_samples)
+    ratio = min(n / max(RECORD_SAMPLES, 1), 1.0)
+
+    # Semi-transparent red bar at the top
+    overlay = frame.copy()
+    cv2.rectangle(overlay, (0, 0), (int(w * ratio), 6), (0, 80, 255), -1)
+    cv2.addWeighted(overlay, 0.8, frame, 0.2, 0, frame)
+
+    # REC text
+    pulse = int(time.time() * 4) % 2 == 0
+    color = (0, 0, 255) if pulse else (100, 100, 255)
+    cv2.putText(frame, f"REC  {n}/{RECORD_SAMPLES}", (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2, cv2.LINE_AA)
+
+
+# ── Frame processing ───────────────────────────────────────────────────────
 
 def _draw_hand(
     frame, idx: int, lm_list: list, label: str, h: int, w: int,
@@ -69,7 +85,7 @@ def _draw_hand(
     ty = int(lm_list[8][1] * h)
 
     up = fingers_up(lm_list, label)
-    gesture = classify_gesture(up, lm_list)
+    gesture = classify_with_custom(up, lm_list, state.CUSTOM_GESTURE_TEMPLATES)
 
     controls = (
         state.CONTROL_HAND == "Both"
@@ -78,6 +94,20 @@ def _draw_hand(
     )
     if idx == 0 and controls:
         move_mouse(lm_list, gesture)
+
+    # ── Recording: capture normalized snapshots ────────────────────────────
+    if idx == 0 and state.recording_gesture:
+        if len(state.recording_samples) < RECORD_SAMPLES:
+            norm = normalize_landmarks(lm_list)
+            if norm is not None:
+                state.recording_samples.append(norm)
+        else:
+            # Auto-stop when we have enough samples
+            state.recording_gesture = False
+
+    # ── Action triggering (only first hand, not while recording) ──────────
+    if idx == 0 and not state.recording_gesture:
+        execute_action(gesture)
 
     if idx not in state.trails:
         state.trails[idx] = deque(maxlen=MAX_TRAIL)
@@ -138,7 +168,7 @@ def _process_frame(frame, h: int, w: int) -> int:
         return len(results.multi_hand_landmarks)
 
 
-# ── Camera loop ────────────────────────────────────────────────────
+# ── Camera loop ────────────────────────────────────────────────────────────
 
 def run_camera() -> None:
     """Open the webcam and run the main detection loop (blocking)."""
@@ -210,6 +240,10 @@ def run_camera() -> None:
             hand_count = _process_frame(frame, h, w)
             draw_ui(frame, fps_avg, hand_count)
 
+        # Recording overlay (drawn on top of everything)
+        if state.recording_gesture:
+            _draw_recording_overlay(frame, h, w)
+
         cv2.imshow("Handy", frame)
 
         key = cv2.waitKeyEx(1)
@@ -223,6 +257,12 @@ def run_camera() -> None:
                 state.ui_queue.put("open_settings")
             else:
                 print("[HOTKEY] settings already open, request ignored")
+        elif _key_matches(key, "tTא"):
+            print(f"[HOTKEY] gesture trainer requested ({_key_to_debug(key)})")
+            if not state.gesture_trainer_open:
+                state.ui_queue.put("open_gesture_trainer")
+            else:
+                print("[HOTKEY] gesture trainer already open, request ignored")
         elif _key_matches(key, "rR") and state.DEBUG_MODE:
             _do_hot_reload()
         elif _key_matches(key, "sS"):
@@ -236,7 +276,7 @@ def run_camera() -> None:
     os.kill(os.getpid(), 9)
 
 
-# ── Hot reload ─────────────────────────────────────────────────────
+# ── Hot reload ─────────────────────────────────────────────────────────────
 
 def _do_hot_reload() -> None:
     """Restart the process with --fast-reload (cross-platform subprocess)."""

@@ -217,13 +217,36 @@ def _build(root: ctk.CTk) -> None:
         print("[SETTINGS] closed")
         win.destroy()
 
+    bottom_row = ctk.CTkFrame(scroll, fg_color=_BG)
+    bottom_row.pack(pady=16)
+
     ctk.CTkButton(
-        scroll, text="Apply", command=apply,
+        bottom_row, text="Apply", command=apply,
         fg_color=_ACC, text_color="#000000",
         font=ctk.CTkFont("Consolas", 11, "bold"),
         hover_color="#00cc77",
         corner_radius=6,
         width=120,
-    ).pack(pady=16)
+    ).pack(side="left", padx=(0, 10))
+
+    def open_trainer():
+        win.destroy()
+        state.settings_open = False
+        if not state.gesture_trainer_open:
+            state.ui_queue.put("open_gesture_trainer")
+
+    ctk.CTkButton(
+        bottom_row,
+        text="Gesture Trainer →",
+        command=open_trainer,
+        fg_color="#1e1e1e",
+        hover_color="#1e3a2f",
+        text_color=_ACC,
+        font=ctk.CTkFont("Consolas", 11, "bold"),
+        border_width=1,
+        border_color=_ACC,
+        corner_radius=6,
+        width=160,
+    ).pack(side="left")
 
     win.protocol("WM_DELETE_WINDOW", on_close)
