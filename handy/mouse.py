@@ -8,6 +8,7 @@ from pynput.mouse import Controller as _MouseController
 import handy.state as state
 
 _mouse = _MouseController()
+_is_pressed = False  # Track if mouse button is currently pressed
 
 
 def init_screen_size() -> None:
@@ -29,14 +30,25 @@ def init_screen_size() -> None:
 
 def reset_anchor() -> None:
     """Reset delta tracking — call whenever hands leave the frame."""
+    global _is_pressed
     state.prev_hand_x = None
     state.prev_hand_y = None
     state.smooth_dx = 0.0
     state.smooth_dy = 0.0
+    # Release mouse button when hand leaves frame
+    if _is_pressed:
+        _mouse.release(_MouseButton.left)
+        _is_pressed = False
 
 
 def move_mouse(lm_list: list, gesture: str) -> None:
+    global _is_pressed
+    
     if not state.MOUSE_ENABLED:
+        # Release button if mouse is disabled
+        if _is_pressed:
+            _mouse.release(_MouseButton.left)
+            _is_pressed = False
         return
 
     tx, ty = lm_list[8][0], lm_list[8][1]
@@ -44,6 +56,10 @@ def move_mouse(lm_list: list, gesture: str) -> None:
     if gesture == "Fist":
         state.prev_hand_x, state.prev_hand_y = tx, ty
         state.smooth_dx, state.smooth_dy = 0.0, 0.0
+        # Release button when making a fist
+        if _is_pressed:
+            _mouse.release(_MouseButton.left)
+            _is_pressed = False
         return
 
     if state.prev_hand_x is None:
@@ -80,8 +96,15 @@ def move_mouse(lm_list: list, gesture: str) -> None:
 
     state.prev_hand_x, state.prev_hand_y = tx, ty
 
-    # SMOOTH=0 → sluggish (s≈0.05), SMOOTH=100 → instant (s=1.0)
-    s = 0.05 + (state.SMOOTH / 100) * 0.95
+    # When drawing (4 Fingers), use much higher responsiveness for precise tracking
+    # Otherwise use normal smoothing
+    if gesture == "4 Fingers":
+        # High responsiveness for drawing - capture every movement
+        s = 0.85 + (state.SMOOTH / 100) * 0.15  # 85%-100% instant response
+    else:
+        # Normal smoothing for cursor movement
+        s = 0.05 + (state.SMOOTH / 100) * 0.95
+    
     state.smooth_dx = state.smooth_dx * (1 - s) + dx_raw * s
     state.smooth_dy = state.smooth_dy * (1 - s) + dy_raw * s
     state.smooth_x = max(0, min(state.SCREEN_W - 1, state.smooth_x + state.smooth_dx))
@@ -89,6 +112,20 @@ def move_mouse(lm_list: list, gesture: str) -> None:
 
     _mouse.position = (int(state.smooth_x), int(state.smooth_y))
 
-    if gesture == "4 Fingers" and time.time() - state.last_click > state.CLICK_COOLDOWN:
-        _mouse.click(_MouseButton.left)
-        state.last_click = time.time()
+    # For "4 Fingers": repeatedly release and press for connected dots
+    if gesture == "4 Fingers":
+        if time.time() - state.last_click > 0.01:  # 10ms between dots
+            if _is_pressed:
+                # Release and immediately press again - creates a dot while maintaining connection
+                _mouse.release(_MouseButton.left)
+                _mouse.press(_MouseButton.left)
+            else:
+                # First time - just press
+                _mouse.press(_MouseButton.left)
+                _is_pressed = True
+            state.last_click = time.time()
+    else:
+        # Release button for any other gesture
+        if _is_pressed:
+            _mouse.release(_MouseButton.left)
+            _is_pressed = False
