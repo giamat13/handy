@@ -16,7 +16,6 @@ venv/
 *.exe
 *.tmp
 *.log
-*.spec
 *.temp
 
 hand_landmarker.task
