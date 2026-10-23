@@ -4,3 +4,7 @@ __pycache__/
 *.log
 settings.json
 gestures.json
+_prerelease.py
+build/
+dist/
+installer_output/

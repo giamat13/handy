@@ -1,0 +1,20 @@
+name: Bug report
+description: Something in Handy 2 does not work as it should
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: Steps to repeat it help most. Please do not include personal information or camera images: this page is public.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Handy 2 version
+      description: Shown in the window title, for example 2.0.0
+  - type: input
+    id: system
+    attributes:
+      label: Windows version and webcam

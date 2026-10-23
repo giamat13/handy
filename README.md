@@ -62,6 +62,10 @@ Settings are saved to `settings.json` next to the code (not tracked by git). Ges
 .venv\Scripts\python -m pytest tests
 ```
 
+## Releases
+
+Versions are `2.X.Y`: X is a feature, Y is a fix. The version lives in `version.py`. To release, follow [docs/release-checklist.md](docs/release-checklist.md): push a tag `vX.Y.Z` (or run the *release* workflow by hand) and GitHub Actions builds `Handy2Setup.exe` and a portable ZIP and publishes them.
+
 ## Roadmap
 
 - [x] Live camera with hand and face mesh
@@ -69,7 +73,9 @@ Settings are saved to `settings.json` next to the code (not tracked by git). Ges
 - [x] Click and scroll by wink or hand sign
 - [x] Gesture-to-action mapping
 - [ ] Recording custom gestures
-- [ ] Packaged installer
+- [x] Installer and portable ZIP built by GitHub Actions (not yet tried on GitHub)
+- [ ] Code signing
+- [x] Automatic update from GitHub releases, with rollback (tested only against a mock server)
 
 ## Privacy
 

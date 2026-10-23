@@ -12,6 +12,8 @@ import overlay
 from camera import Camera
 from mouse_control import MouseController
 from tracker import Tracker
+from update_ui import UpdateManager
+from version import FULL_VERSION
 
 ICON_PATH = Path(__file__).resolve().parent / "icon.png"
 VIEW_W, VIEW_H = 800, 600
@@ -37,6 +39,19 @@ class SettingsWindow(ctk.CTkToplevel):
                 body, text=text, variable=var,
                 command=lambda k=key, v=var: self._set(k, v.get()),
             ).pack(anchor="w", padx=12, pady=(10, 0))
+
+        for key, text in (
+            ("auto_update_check", "בדוק עדכונים אוטומטית"),
+            ("beta_channel", "הצע גם גרסאות בטא"),
+        ):
+            var = ctk.BooleanVar(value=cfg[key])
+            ctk.CTkSwitch(
+                body, text=text, variable=var,
+                command=lambda k=key, v=var: self._set(k, v.get()),
+            ).pack(anchor="w", padx=12, pady=(10, 0))
+        ctk.CTkButton(
+            body, text=f"בדוק עדכונים עכשיו (גרסה {FULL_VERSION})", command=lambda: master.updates.check(manual=True)
+        ).pack(anchor="w", padx=12, pady=(10, 0))
 
         self._label(body, "שליטה בעכבר באמצעות")
         names = list(SOURCES.values())
@@ -89,11 +104,15 @@ class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         ctk.set_appearance_mode("dark")
-        self.title("Handy 2")
+        self.title(f"Handy 2 {FULL_VERSION}")
         self.geometry(f"{VIEW_W}x{VIEW_H + 44 + 40}")
         self.resizable(False, False)
         self.cfg = settings.load()
         self.after(250, self._set_icon)  # customtkinter דורס אייקון שמוגדר מוקדם יותר
+        self.updates = UpdateManager(self, self.cfg)
+        if not self.updates.startup():  # עדכון שנקטע: סקריפט השחזור מחזיר את הגרסה הקודמת ומפעיל מחדש
+            self.withdraw()
+            return
 
         top = ctk.CTkFrame(self, height=44, corner_radius=0)
         top.pack(fill="x")
