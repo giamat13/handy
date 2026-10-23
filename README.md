@@ -1,88 +1,80 @@
-# Handy - Hand Detection & Gesture Tracking
+# Handy 2
 
-Real-time hand tracking and gesture recognition using your webcam. Control your mouse with hand gestures via MediaPipe and OpenCV.
+Control your Windows PC with a webcam. Hand or head tracking moves the mouse, and a wink or a hand sign triggers clicks, scrolling and dragging.
+
+The main window shows the live camera with the MediaPipe hand mesh and face landmarks drawn on top. A status line under the video shows what is detected right now (for example "wink left" or "thumbs up").
 
 ## Features
 
-- Real-time hand landmark detection (up to 2 hands)
-- Gesture recognition: Fist, Open Hand, Victory, Thumbs Up, Hang Loose, and more
-- Mouse control via index finger position
-- Visual trail effect
-- Settings window for customization
-- Auto-installs dependencies on first run
+- Live video with hand mesh (21 points) and face landmarks, switchable in settings
+- Mouse control by hand (palm center) or head (nose tip), with smoothing and sensitivity
+- Wink detection (left / right; a normal blink is ignored)
+- Hand signs: pinch, OK, peace, thumbs up / down, fist, open palm, point, three fingers, rock
+- Every gesture can be mapped to an action: left / right / middle / double click, drag, scroll up / down
+- Mouse control is off by default
 
 ## Requirements
 
-- Python 3.8+
-- Webcam
+- Windows 10 / 11
+- Python 3.12
+- A webcam
 
-## Installation
+## Install and run
 
-```bash
-pip install opencv-python mediapipe numpy pyautogui
+```
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+.venv\Scripts\python run.py
 ```
 
-Or just run the script — it will install missing packages automatically.
+MediaPipe is pinned to 0.10.21 because later releases removed the `mp.solutions` API this project uses.
 
-## Usage
+## Hotkeys
 
-```bash
-python main.py
+| Key | Action |
+| --- | --- |
+| F8 | Toggle mouse control |
+| F9 | Set the current head position as the screen center |
+
+## Settings
+
+Settings are saved to `settings.json` next to the code (not tracked by git). Gesture-to-action mapping, source (hand / head), sensitivity and smoothing are all in the settings window.
+
+## Project layout
+
+| File | Purpose |
+| --- | --- |
+| `run.py` | Entry point |
+| `app.py` | Main window and settings window |
+| `camera.py` | Threaded camera capture, always the latest frame |
+| `tracker.py` | MediaPipe hands and face, publishes frame and landmarks together |
+| `signs.py` | Hand sign classifier and wink detector |
+| `mouse_control.py` | Cursor movement, clicks, scrolling |
+| `overlay.py` | Drawing the mesh over the video |
+| `actions.py` | Gesture and action names, default mapping |
+| `settings.py` | Load and save settings |
+| `tests/` | Tests for sign and wink detection (synthetic landmarks, no camera) |
+
+## Tests
+
+```
+.venv\Scripts\pip install pytest
+.venv\Scripts\python -m pytest tests
 ```
 
-On first run, the model file `hand_landmarker.task` (~9MB) will be downloaded automatically.
+## Roadmap
 
-## Build Outputs
+- [x] Live camera with hand and face mesh
+- [x] Mouse control by hand or head
+- [x] Click and scroll by wink or hand sign
+- [x] Gesture-to-action mapping
+- [ ] Recording custom gestures
+- [ ] Packaged installer
 
-To create the standalone app executable:
+## Privacy
 
-```bash
-python build_exe.py
-```
+All processing happens locally. Camera frames are never saved or sent anywhere.
 
-This creates `release/Handy.exe`.
+## License
 
-To create a real Windows installer (`Program Files`, Start Menu shortcut, desktop shortcut option, uninstall entry):
-
-```bash
-python build_setup.py
-```
-
-This creates `release/Handy-Setup.exe`.
-
-`build_setup.py` requires Inno Setup 6. If it is not installed yet, install it first:
-
-```bash
-winget install JRSoftware.InnoSetup
-```
-
-## Gestures
-
-| Gesture | Description |
-|---|---|
-| ☝️ One Finger | Move mouse cursor |
-| ✌️ Victory | Left click |
-| 👊 Fist | Stop mouse control |
-| 👍 Thumbs Up | Toggle mouse control |
-| 🤙 Hang Loose | Right click |
-| 🖐️ Open Hand | No action |
-
-## Configuration
-
-Adjustable settings (via settings window or directly in `main.py`):
-
-| Setting | Default | Description |
-|---|---|---|
-| `SMOOTH` | 7 | Cursor smoothing (0=slow, 100=fast) |
-| `SPEED` | 5 | Mouse speed multiplier |
-| `DYNAMIC_SPEED` | True | Slow hand = very slow cursor, fast hand = normal speed |
-| `SPEED_CURVE` | 2.0 | Power curve exponent — higher = more contrast between slow/fast |
-| `CAM_MARGIN` | 0.15 | Camera edge margin for full-screen mapping |
-| `DEADZONE` | 8 | Minimum pixel movement threshold |
-| `CONTROL_HAND` | Right | Which hand controls the mouse (Right/Left/Both) |
-| `CLICK_COOLDOWN` | 0.6s | Minimum time between clicks |}
-
-## Notes
-
-- Tries the new MediaPipe Tasks API first, falls back to legacy API automatically
-- Set `pyautogui.FAILSAFE = True` if you want to re-enable the failsafe corner
+[MIT](LICENSE)
