@@ -13,7 +13,8 @@ _CLICKS = {
 }
 _SCROLL = {"scroll_up": 1, "scroll_down": -1}
 _SCROLL_INTERVAL = 0.08
-_COOLDOWN = 0.45  # בין שני קליקים של אותה מחווה
+_COOLDOWN = 0.7  # בין כל שני קליקים, מכל מחווה: מונע קליק כפול ממחווה שמהבהבת
+_RELEASE_HOLD = 0.3  # מחווה נחשבת כנגמרה רק אחרי כל כך הרבה זמן בלעדיה, כדי שהבהוב לא יספור כמחווה חדשה
 _FREEZE = 0.3  # אחרי קליק לא מזיזים את הסמן, כי הראש/היד זזים קצת בזמן המחווה
 
 # טווח התנועה (חצי רוחב, חצי גובה) בקואורדינטות מנורמלות של הפריים, לרגישות 1
@@ -56,7 +57,8 @@ class MouseController:
         self.sw, self.sh = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
         self.fx, self.fy = OneEuro(), OneEuro()
         self.prev = set()
-        self.last_fire = {}
+        self.last_seen = {}
+        self.last_click = -1e9
         self.last_scroll = 0.0
         self.freeze_until = 0.0
         self.dragging = None
@@ -103,9 +105,14 @@ class MouseController:
             self.prev = set()
             return
 
-        active = {s for s in signs if s}
+        raw = {s for s in signs if s}
         if wink:
-            active.add(wink)
+            raw.add(wink)
+        for g in raw:
+            self.last_seen[g] = now
+        # הקליקים נקבעים לפי מחוות "מוחזקות" (נשארות פעילות עוד רגע אחרי שנעלמו), הגלילה לפי מה שנראה עכשיו
+        active = {g for g, t in self.last_seen.items() if now - t < _RELEASE_HOLD}
+        self.last_seen = {g: self.last_seen[g] for g in active}
 
         p, src = self._point(hands, face)
         # בזמן קריצה הפנים זזים, אז לא מזיזים את הסמן
@@ -120,7 +127,7 @@ class MouseController:
         for g in self.prev - active:
             if bindings.get(g) == "drag":
                 self.release()
-        for g in active:
+        for g in raw:
             action = bindings.get(g, "none")
             if action in _SCROLL and now - self.last_scroll >= _SCROLL_INTERVAL:
                 self.mouse.scroll(0, _SCROLL[action])
@@ -129,9 +136,9 @@ class MouseController:
 
     def _fire(self, action, gesture, now):
         if action in _CLICKS:
-            if now - self.last_fire.get(gesture, 0) < _COOLDOWN:
+            if now - self.last_click < _COOLDOWN:
                 return
-            self.last_fire[gesture] = now
+            self.last_click = now
             self.freeze_until = now + _FREEZE
             button, count = _CLICKS[action]
             self.mouse.click(button, count)

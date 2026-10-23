@@ -19,6 +19,6 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-dev.txt
       # the tests use synthetic landmarks and need no camera, so only numpy, Pillow and pytest are installed
-      - run: python -m pip install numpy "Pillow" pytest
+      - run: python -m pip install numpy "Pillow" pynput pytest
       # tests/test_overlay.py is left out on purpose: it imports core.tracker, ui.overlay and tests.test_gestures, which do not exist in this layout
-      - run: python -m pytest -q tests/test_signs.py tests/test_release.py tests/test_updater.py
+      - run: python -m pytest -q tests/test_signs.py tests/test_release.py tests/test_updater.py tests/test_mouse_clicks.py
