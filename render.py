@@ -1,4 +1,4 @@
-"""מצייר את הווידאו החי (רשת יד, פנים, שובל, קואורדינטות) ומקודד ל-JPEG בשביל הממשק. מצייר רק כשיש מי שצופה."""
+"""מצייר את הווידאו החי (רשת יד, פנים, צירי ראש, מד צביטה, שובל זוהר, גלי קליק, קואורדינטות) ומקודד ל-JPEG בשביל הממשק. מצייר רק כשיש מי שצופה."""
 import threading
 import time
 
@@ -7,13 +7,14 @@ import cv2
 import overlay
 import view_aids
 from actions import GESTURES
+from perf import RateMeter, TimeMeter
 
 VIEW_W, VIEW_H = 800, 600
 WATCH_TIMEOUT = 3.0  # בלי בקשת וידאו כל כך הרבה זמן = אף אחד לא צופה, ואז לא מציירים ולא מקודדים
 
 
 def detect_text(signs, names):
-    """מה מזוהה עכשיו, לשורת הסטטוס: קריצה, ואחריה מחוות היד (מובנות ומותאמות)."""
+    """מה מזוהה עכשיו, לשורת הסטטוס: מחוות היד והראש (מובנות ומותאמות)."""
     found = [names[s] for s in signs if s in names]
     return " + ".join(found) if found else "—"
 
@@ -23,8 +24,11 @@ class Renderer:
         """names: פונקציה שמחזירה {מזהה מחווה: שם} (כולל מותאמות), כי הרשימה משתנה בזמן ריצה."""
         self.tracker, self.mouse, self.cfg, self.names = tracker, mouse, cfg, names
         self.trail = view_aids.Trail()
-        self.detect = "—"
+        self.ripples = view_aids.Ripples()
+        self.detect = self.detect_hand = self.detect_head = "—"   # הכול, מחוות היד בלבד, מחוות הראש בלבד
+        self.conf = {}                     # {מזהה מחווה: ביטחון 0..1} מהפריים האחרון, לתצוגת האבחון
         self.fps = 0.0
+        self.draw_rate, self.draw_ms, self.encode_ms = RateMeter(), TimeMeter(), TimeMeter()
         self._cond = threading.Condition()
         self._jpeg = None
         self._seq = 0
@@ -67,12 +71,22 @@ class Renderer:
             active = self.mouse.active_slot if cfg["control_source"] == "hand" else None
             for h, slot in zip(out.hands, out.slots):
                 overlay.draw_hand(img, h, active=slot == active)
+        if cfg["show_pinch_gauge"]:
+            for h in out.hands:
+                view_aids.draw_pinch(img, h)
+        if cfg["show_head_axes"]:
+            view_aids.draw_head_axes(img, out.pose)
         now = time.perf_counter()
         if cfg["show_trail"]:
             self.trail.push(out.point, now)
-            view_aids.draw_trail(img, self.trail.points(now))
+            view_aids.draw_glow_trail(img, self.trail.segments(now))
         else:
             self.trail.clear()
+        if cfg["show_ripples"]:
+            self.ripples.feed(getattr(self.mouse, "click_events", ()))
+            view_aids.draw_ripples(img, self.ripples.active(now))
+        else:
+            self.ripples.clear()
         if cfg["show_coords"]:
             view_aids.draw_coords(img, view_aids.format_coords(self.mouse.cursor_position()))
         return img
@@ -85,12 +99,20 @@ class Renderer:
                 time.sleep(0.004)
                 continue
             last = out.id
-            self.detect = detect_text(out.signs, self.names())
+            names = self.names()
+            self.detect = detect_text(out.signs, names)
+            self.detect_hand = detect_text(out.signs[:2], names)    # signs[0], signs[1]: שתי הידיים
+            self.detect_head = detect_text(out.signs[2:], names)    # signs[2]: הראש
+            self.conf = out.conf
             self.fps = self.tracker.fps
             if time.monotonic() > self._want_until:
                 continue
-            ok, buf = cv2.imencode(".jpg", self.draw(out), [cv2.IMWRITE_JPEG_QUALITY, 80])
+            with self.draw_ms:
+                img = self.draw(out)
+            with self.encode_ms:
+                ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 80])
             if ok:
+                self.draw_rate.tick()
                 with self._cond:
                     self._jpeg = buf.tobytes()
                     self._seq += 1

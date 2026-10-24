@@ -35,35 +35,57 @@
       <div id="no-camera" class="overlay-msg" hidden>לא נמצאה מצלמה</div>
     </div>
     <div class="detect-card">
-      <div class="grow"><div class="label">מזוהה עכשיו</div><div id="detect" class="detect">—</div></div>
-      <div class="action"><div class="label">פעולה</div><b id="detect-action">—</b></div>
+      <div class="grow"><div class="label">מחוות יד: מזוהה עכשיו</div><div id="detect-hand" class="detect">—</div></div>
+      <div class="action"><div class="label">פעולה</div><b id="detect-action-hand">—</b></div>
+    </div>
+    <div class="detect-card">
+      <div class="grow"><div class="label">מחוות ראש: מזוהה עכשיו</div><div id="detect-head" class="detect">—</div></div>
+      <div class="action"><div class="label">פעולה</div><b id="detect-action-head">—</b></div>
     </div>
   </section>
 
   <section class="panel">
     <nav class="tabs" role="tablist" aria-label="לשוניות">
-      <button role="tab" data-tab="hand" class="active">מחוות יד</button>
+      <button role="tab" data-tab="hand" class="active">מחוות מובנות</button>
+      <button role="tab" data-tab="mine">מחוות שלי</button>
       <button role="tab" data-tab="settings">הגדרות</button>
+      <button role="tab" data-tab="diag">אבחון</button>
       <button role="tab" data-tab="updates">עדכונים</button>
     </nav>
 
     <div class="tab active" id="tab-hand">
-      <h2>מיפוי מחוות לפעולות</h2>
-      <p class="muted small">לכל מחווה בוחרים פעולה: קליק, גרירה או לחיצה ארוכה, גלילה, הפעלה/כיבוי של השליטה, קיצור מקשים או הרצת תוכנה.</p>
+      <h2>מיפוי מחוות היד המובנות לפעולות</h2>
+      <p class="muted small">לכל מחווה בוחרים פעולה: קליק, גרירה או לחיצה ארוכה, גלילה, הפעלה/כיבוי של השליטה, קיצור מקשים או הרצת תוכנה. מחוות שהקלטת בעצמך (יד וראש) נמצאות בלשונית "מחוות שלי".</p>
       <div id="rows-hand" class="rows"></div>
+    </div>
 
-      <h2>המחוות שלי</h2>
+    <div class="tab" id="tab-mine">
+      <h2>מחוות היד שלי</h2>
       <div class="card">
-        <p class="muted small">תן שם, לחץ על הקלט והחזק את התנוחה מול המצלמה ללא תנועה, עד שהפס מתמלא. תנוחה שדומה למחווה מובנית מקבלת עדיפות.</p>
+        <p class="muted small">תן שם, לחץ על הקלט והחזק את תנוחת היד מול המצלמה ללא תנועה, עד שהפס מתמלא. תנוחה שדומה למחווה מובנית מקבלת עדיפות.</p>
         <div class="line">
-          <input id="rec-name" type="text" maxlength="30" placeholder="שם המחווה" aria-label="שם המחווה">
-          <button id="rec-start" class="primary">הקלט</button>
-          <button id="rec-cancel" hidden>בטל</button>
+          <input id="rec-name-hand" type="text" maxlength="30" placeholder="שם המחווה" aria-label="שם מחוות היד">
+          <button id="rec-start-hand" class="primary">הקלט</button>
+          <button id="rec-cancel-hand" hidden>בטל</button>
         </div>
-        <progress id="rec-bar" max="1" value="0" hidden></progress>
-        <div id="rec-msg" class="msg" role="status"></div>
+        <progress id="rec-bar-hand" max="1" value="0" hidden></progress>
+        <div id="rec-msg-hand" class="msg" role="status"></div>
       </div>
-      <div id="rows-custom" class="rows custom-list"></div>
+      <div id="rows-custom-hand" class="rows custom-list"></div>
+
+      <h2>מחוות הראש שלי</h2>
+      <p class="muted small">מחוות ראש הן נפרדות ממחוות היד: יש להן רשימה, הקלטה ומיפוי משלהן, והן לא תלויות באיזו יד שולטת. אין מחוות ראש מובנות, מקליטים תנוחה של הראש: הטיה, הפנייה, פה פתוח או גבות מורמות. אפשר לקשור כל אחת לאותן פעולות כמו מחווה של היד.</p>
+      <div class="card">
+        <p class="muted small">תן שם, לחץ על הקלט והחזק את הראש בתנוחה מול המצלמה ללא תנועה, עד שהפס מתמלא. המיקום והמרחק מהמצלמה לא משנים, רק התנוחה.</p>
+        <div class="line">
+          <input id="rec-name-head" type="text" maxlength="30" placeholder="שם המחווה" aria-label="שם מחוות הראש">
+          <button id="rec-start-head" class="primary">הקלט</button>
+          <button id="rec-cancel-head" hidden>בטל</button>
+        </div>
+        <progress id="rec-bar-head" max="1" value="0" hidden></progress>
+        <div id="rec-msg-head" class="msg" role="status"></div>
+      </div>
+      <div id="rows-custom-head" class="rows custom-list"></div>
     </div>
 
     <div class="tab" id="tab-settings">
@@ -77,10 +99,27 @@
       <label class="switch"><input type="checkbox" data-key="show_face_mesh"><span class="track"></span><span>הצג נקודות פנים</span></label>
       <label class="switch"><input type="checkbox" data-key="show_trail"><span class="track"></span><span>שובל אחרי הנקודה השולטת</span></label>
       <label class="switch"><input type="checkbox" data-key="show_coords"><span class="track"></span><span>קואורדינטות של הסמן</span></label>
+      <label class="switch"><input type="checkbox" data-key="show_head_axes"><span class="track"></span><span>צירי ראש תלת-ממדיים מעל האף, עם זוויות</span></label>
+      <label class="switch"><input type="checkbox" data-key="show_pinch_gauge"><span class="track"></span><span>מד צביטה בין האגודל לאצבע</span></label>
+      <label class="switch"><input type="checkbox" data-key="show_ripples"><span class="track"></span><span>גל בנקודת כל קליק (צבע לפי סוג הקליק)</span></label>
       <h2>הרצה</h2>
+      <label class="switch"><input type="checkbox" data-key="autostart"><span class="track"></span><span>הפעל את התוכנה עם המחשב</span></label>
+      <p class="muted small">ההפעלה עם המחשב עולה ישר למגש המערכת בלי לפתוח חלון, והשליטה בעכבר מתחילה כבויה (מדליקים ב-F8 או במחווה). כשהיא רצה כך, סגירת החלון משאירה אותה במגש.</p>
+      <div id="settings-msg" class="msg bad" role="status"></div>
       <label class="switch"><input type="checkbox" data-key="run_in_background"><span class="track"></span><span>המשך לרוץ ברקע (במגש המערכת) כשסוגרים את החלון</span></label>
       <p class="muted small">ברקע המצלמה והשליטה בעכבר ממשיכות לעבוד. מהאייקון במגש אפשר לפתוח את החלון, להחליף את מצב השליטה או לצאת.</p>
       <button id="quit" class="danger">יציאה מהתוכנה</button>
+    </div>
+
+    <div class="tab" id="tab-diag">
+      <h2>ביטחון בזיהוי</h2>
+      <p class="muted small">לכל מחווה פס שמראה כמה היד (או הראש) קרובים אליה. הסימן באמצע הפס הוא גבול הזיהוי: מעליו המחווה מזוהה. מחוות היד מוצגות עבור היד השולטת. כשפס אחד מתחת לגבול ופס אחר קרוב אליו, שתי המחוות נוטות להתבלבל.</p>
+      <div id="conf-note" class="msg" role="status"></div>
+      <div id="conf-bars" class="bars"></div>
+      <h2>קצב ומשך של כל שלב</h2>
+      <p class="muted small">המספרים נמדדים בפועל ולא מוערכים. המצלמה יכולה לספק פחות פריימים ממה שהתוכנה מצליחה לעבד, ואז הסמן לא יזוז חלק גם אם הציור מהיר.</p>
+      <div id="perf-note" class="msg" role="status"></div>
+      <table class="perf" id="perf-table"><tbody></tbody></table>
     </div>
 
     <div class="tab" id="tab-updates">

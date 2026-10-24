@@ -10,6 +10,7 @@ import urllib.request
 from pathlib import Path
 
 import actions
+import autostart
 import settings
 import window
 from camera import Camera
@@ -75,7 +76,11 @@ class Application:
         self._hotkeys = None
         self._register_hotkeys()
         self._last_enabled = None
-        self.background_start = background_start
+        self.background_start = background_start   # הופעלה עם המחשב (או --background): עולה במגש ונשארת שם גם כשסוגרים את החלון
+        try:
+            autostart.refresh()   # הנתיב בהפעלה עם המחשב מתעדכן אחרי עדכון או העברה של התוכנה
+        except OSError:
+            pass
 
     def _tray_image(self):
         from PIL import Image
@@ -125,13 +130,13 @@ class Application:
             self.stop_event.set()
 
     def _ui_closed(self):
-        """החלון נסגר: ברקע אם ההגדרה דולקת ויש מגש, אחרת יוצאים."""
-        if self.cfg["run_in_background"] and self.tray.start():
+        """החלון נסגר: ברקע אם ההגדרה דולקת (או שהתוכנה הופעלה עם המחשב) ויש מגש, אחרת יוצאים."""
+        if (self.cfg["run_in_background"] or self.background_start) and self.tray.start():
             return
         self.stop_event.set()
 
     def run(self):
-        if self.background_start and self.cfg["run_in_background"] and self.tray.start():
+        if self.background_start and self.tray.start():   # הפעלה עם המחשב: מגש בלבד, בלי חלון
             pass
         else:
             self.open_window()

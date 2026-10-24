@@ -17,6 +17,7 @@ import update_service  # noqa: E402
 import webui  # noqa: E402
 import window  # noqa: E402
 from test_custom_gestures import POSE_A, record  # noqa: E402
+from test_head_gestures import HEAD_A  # noqa: E402
 from test_mouse_clicks import FakeMouse  # noqa: E402
 
 
@@ -217,10 +218,11 @@ def finish(be, pose=POSE_A, mode_name=None):
 
 
 def test_recording_flow(be):
-    be.custom({"op": "record", "name": "Alpha", "mode": "new"})
+    be.custom({"op": "record", "name": "Alpha", "mode": "new", "kind": "hand"})
     assert be.tracker.recorder is be.rec and be.state()["recording"]["name"] == "Alpha"
+    assert be.state()["recording"]["kind"] == "hand"
     with pytest.raises(webui.ApiError):
-        be.custom({"op": "record", "name": "Beta", "mode": "new"})          # one at a time
+        be.custom({"op": "record", "name": "Beta", "mode": "new", "kind": "hand"})   # one at a time
     rec = be.rec
     import numpy as np
     for _ in range(100):
@@ -233,16 +235,16 @@ def test_recording_flow(be):
 
 
 def test_recording_errors_and_cancel(be):
-    for body in ({"op": "record", "name": "", "mode": "new"}, {"op": "record", "name": "x", "mode": "wild"},
+    for body in ({"op": "record", "name": "", "mode": "new", "kind": "hand"}, {"op": "record", "name": "x", "mode": "wild"},
                  {"op": "record", "mode": "train", "id": "custom:nope"}):
         with pytest.raises(webui.ApiError):
             be.custom(body)
     assert be.rec is None
     be.tracker.camera.opened = False
     with pytest.raises(webui.ApiError, match="מצלמה"):
-        be.custom({"op": "record", "name": "x", "mode": "new"})
+        be.custom({"op": "record", "name": "x", "mode": "new", "kind": "hand"})
     be.tracker.camera.opened = True
-    be.custom({"op": "record", "name": "x", "mode": "new"})
+    be.custom({"op": "record", "name": "x", "mode": "new", "kind": "hand"})
     be.custom({"op": "cancel"})
     assert be.rec is None and be.tracker.recorder is None
 
@@ -262,7 +264,81 @@ def test_rename_and_unknown_ops(be):
 def test_duplicate_name_is_refused_before_recording(be):
     be.store.add("Alpha", record("Alpha", POSE_A))
     with pytest.raises(webui.ApiError, match="בשם הזה"):
-        be.custom({"op": "record", "name": "alpha", "mode": "new"})
+        be.custom({"op": "record", "name": "alpha", "mode": "new", "kind": "hand"})
+
+
+# --- hand or head: asked on every new gesture ---------------------------------------
+
+def test_every_new_gesture_must_say_whether_it_is_for_the_hand_or_the_head(be):
+    for kind in (None, "", "leg", 3):
+        with pytest.raises(webui.ApiError, match="יד או ראש"):
+            be.custom({"op": "record", "name": "Nodder", "mode": "new", "kind": kind})
+    with pytest.raises(webui.ApiError, match="יד או ראש"):
+        be.custom({"op": "record", "name": "Nodder", "mode": "new"})
+    assert be.rec is None and be.tracker.recorder is None
+
+
+def test_a_head_gesture_is_recorded_listed_and_keeps_its_kind(be):
+    be.custom({"op": "record", "name": "Tilt", "mode": "new", "kind": "head"})
+    assert be.rec.kind == "head" and be.state()["recording"]["kind"] == "head"
+    rec = be.rec
+    for _ in range(100):
+        rec.add(HEAD_A, None)
+        if rec.done:
+            break
+    be.tick()
+    assert be.rec_result["ok"], be.rec_result
+    row = be.config()["groups"]["custom"][0]
+    assert row["name"] == "Tilt" and row["kind"] == "head"
+    gid = row["id"]
+    be.custom({"op": "record", "id": gid, "mode": "train"})              # no kind needed: it is the gesture's own
+    assert be.rec.kind == "head"
+    be.custom({"op": "cancel"})
+
+
+def test_state_carries_confidence_and_stage_timings(be):
+    be.renderer.conf = {"victory": 0.93, "custom:x": 0.1234}
+    st = be.state()
+    assert st["conf"] == {"victory": 0.93, "custom:x": 0.12}
+    assert set(st["perf"]) == {"camera_fps", "tracker_fps", "hands_ms", "face_ms", "logic_ms", "latency_ms", "draw_fps", "draw_ms",
+                               "encode_ms", "cursor_hz"}
+    assert all(v is None for v in st["perf"].values())                   # the fakes measure nothing: reported as unknown
+    from perf import RateMeter, TimeMeter
+    be.tracker.rate, be.tracker.hands_ms = RateMeter(), TimeMeter()
+    be.tracker.hands_ms.add(0.0123)
+    assert be.state()["perf"]["hands_ms"] == 12.3 and be.state()["perf"]["tracker_fps"] == 0.0
+
+
+# --- start with the computer ---------------------------------------------------------
+
+def test_autostart_is_read_from_and_written_to_the_system(be, monkeypatch):
+    state = {"on": False, "calls": []}
+    monkeypatch.setattr(webui.autostart, "is_enabled", lambda: state["on"])
+    monkeypatch.setattr(webui.autostart, "set_enabled", lambda on: state.update(on=on, calls=state["calls"] + [on]))
+    assert be.config()["settings"]["autostart"] is False
+    v = be.config_version
+    be.set_value({"key": "autostart", "value": True})
+    assert state["on"] and be.config()["settings"]["autostart"] is True and be.config_version > v
+    assert "autostart" not in be.cfg and not be.saved                     # the system is the truth, not settings.json
+    be.set_value({"key": "autostart", "value": False})
+    assert state["calls"] == [True, False]
+    with pytest.raises(webui.ApiError):
+        be.set_value({"key": "autostart", "value": "yes"})
+
+
+def test_autostart_failure_is_reported_not_raised(be, monkeypatch):
+    def boom(on):
+        raise PermissionError("denied")
+    monkeypatch.setattr(webui.autostart, "set_enabled", boom)
+    with pytest.raises(webui.ApiError, match="denied"):
+        be.set_value({"key": "autostart", "value": True})
+
+
+def test_new_display_options_are_settings(be):
+    for key in ("show_head_axes", "show_pinch_gauge", "show_ripples"):
+        assert be.config()["settings"][key] is True
+        be.set_value({"key": key, "value": False})
+        assert be.cfg[key] is False
 
 
 # --- the window going away -----------------------------------------------------
@@ -420,9 +496,16 @@ def test_the_page_is_separate_files_and_uses_relative_paths():
     js = (ROOT / "web" / "app.js").read_text("utf-8")
     assert "__TOKEN__" in html and "<style" not in html                       # the CSS lives in its own file
     assert ".innerHTML" not in js and "insertAdjacentHTML" not in js and "eval(" not in js   # text from the server is only ever shown as text
-    for tab in ("hand", "settings", "updates"):
+    for tab in ("hand", "mine", "settings", "diag", "updates"):
         assert f'id="tab-{tab}"' in html and f'data-tab="{tab}"' in html
-    assert 'id="rows-hand"' in html and "tab-head" not in html and "eye-left" not in html   # no wink / head-gesture area any more
+    assert 'id="rows-hand"' in html and "eye-left" not in html                              # no winks
+    # hand and head gestures are separate things: each kind has its own recording card and its own list, both in the "my gestures" tab
+    mine = html.split('id="tab-mine"', 1)[1].split('id="tab-settings"', 1)[0]
+    assert 'id="rows-hand"' not in mine and 'id="rows-hand"' in html.split('id="tab-mine"', 1)[0]   # the built-in signs stay in their own tab
+    for kind in ("hand", "head"):
+        assert all(f'id="{p}-{kind}"' in mine for p in ("rows-custom", "rec-name", "rec-start", "rec-cancel", "rec-bar", "rec-msg"))
+        for part in ("rows-custom", "rec-name", "rec-start", "rec-cancel", "rec-bar", "rec-msg"):
+            assert f'id="{part}-{kind}"' in html, (part, kind)
 
 
 # --- the update service --------------------------------------------------------

@@ -10,12 +10,16 @@ The main window shows the live camera with the MediaPipe hand mesh and face land
 - Mouse control by hand (palm center) or head (nose tip), with smoothing and sensitivity
 - **Dominant hand**: right, left or both control the mouse; the active hand is marked on the video
 - Hand signs: pinch, OK, victory (V), hang loose, thumbs up / down, fist, open palm, point, three fingers, rock
-- **Custom gestures**: record your own static hand poses, name them, rename, re-record or delete them
+- **Custom gestures**: record your own static poses of the **hand or the head** (tilt, turn, open mouth, raised brows). Hand gestures and head gestures live in separate tabs. Name them, rename, re-record, train more or delete them
 - Every gesture can be mapped to an action: left / right / middle / double click, scroll up / down, turn the control on / off, **press a key combination** (`Ctrl+C`, `Alt+Tab`, `Win+D`) or **run a program or script** with arguments
 - A click (or a key combination) stays pressed for as long as you keep making the gesture: a short gesture is a click, a held gesture is a long press or a drag. There is no separate long-press action
 - **Run in the background**: closing the window can leave the program running (system tray) with the mouse control
 - The interface is a web page (`web/`), see below
-- Optional **trail** after the controlling point and **cursor coordinates** on the video
+- Optional **glow trail** after the controlling point (blue when slow, through green and yellow to red when fast) and **cursor coordinates** on the video
+- **Click ripples**: a ring spreads from the point of every click, in a colour per kind (left, right, middle, double)
+- **3D head axes** above the nose (X red, Y green, Z blue) with yaw / pitch / roll in degrees, and a **pinch gauge** between thumb and index finger with a tick where a pinch starts to count
+- **Diagnostics** tab: a live confidence bar for every gesture (built-in, custom hand and custom head) and the real rate or duration of each stage, from camera to cursor
+- **Start with the computer** (Settings): starts straight into the system tray without opening the window
 - Mouse control is off by default (and always off when the program starts)
 
 ### Default mapping
@@ -34,11 +38,12 @@ The main window shows the live camera with the MediaPipe hand mesh and face land
 
 ### Custom gestures
 
-Open **מחוות** (next to Settings), type a name and press **הקלט**. Hold the pose still in front of the camera until the bar is full (about a second). The gestures are saved in `custom_gestures.json` next to `settings.json`, and then appear in the mapping list in Settings like the built-in ones.
+Hand gestures and head gestures are two separate things, each with its own tab, recording card, list and mapping: **מחוות יד** (built-in signs plus your own hand poses) and **מחוות ראש** (only your own head poses; there are no built-in head signs). Open the tab of the kind you want, type a name and press **הקלט**. Hold the pose still in front of the camera until the bar is full (about a second). The gestures are saved in `custom_gestures.json` next to `settings.json`. They never block or replace each other: a head gesture and a hand gesture can be active together, each with its own action.
 
-- Only static poses (no movement). The hand rests in the pose for a moment before it is recognised, and moving between poses triggers nothing.
-- A recording is refused if the pose is already a built-in sign, or too close to another custom gesture of yours; pick a clearly different pose.
+- Only static poses (no movement). The hand or head rests in the pose for a moment before it is recognised, and moving between poses triggers nothing.
+- A hand recording is refused if the pose is already a built-in sign, or too close to another custom hand gesture of yours; pick a clearly different pose. Head gestures are compared only with other head gestures.
 - A gesture recorded with one hand is recognised on the other hand too.
+- A head gesture is the pose of the face points (tilt, turn, nod angle, mouth, brows), independent of where the head is and how far it is. It works whichever hand is set as the dominant one, and also while the head moves the cursor.
 - No action fires while you record.
 
 ### Keys and programs
@@ -118,7 +123,10 @@ Version 2.0.x kept them in `%APPDATA%\Handy2`. The first start of the new versio
 | `custom_gestures.py` | Recording, storing and recognising custom gestures |
 | `mouse_control.py` | Cursor movement, clicks, scrolling, dominant hand, key and program actions |
 | `commands.py` | Validation and running of key combinations and programs (no shell) |
-| `view_aids.py` | The trail and the coordinates drawn on the video |
+| `view_aids.py` | The glow trail, click ripples, head axes, pinch gauge and the coordinates drawn on the video |
+| `head_pose.py` | Head direction (3 axes, yaw / pitch / roll) and the face points that define a head pose |
+| `perf.py` | Real rate and duration meters for the diagnostics tab |
+| `autostart.py` | Start with the computer (Windows Run key, macOS LaunchAgent, Linux autostart file) |
 | `overlay.py` | Drawing the mesh over the video |
 | `actions.py` | Gesture and action names, default mapping |
 | `settings.py` | Load and save settings, data folders, the move from `Handy2` |

@@ -45,8 +45,9 @@ def test_tracker_publishes_a_complete_output(tmp_path):
         time.sleep(0.05)
     t.stop()
     assert out is not None
-    assert out.hands == [] and out.slots == [] and out.signs == [None, None] and out.point is None
-    assert ctrl.calls and all(c[1] == [None, None] for c in ctrl.calls)
+    assert out.hands == [] and out.slots == [] and out.signs == [None, None, None] and out.point is None   # left, right, head
+    assert out.pose is None and out.conf == {}
+    assert ctrl.calls and all(c[1] == [None, None, None] for c in ctrl.calls)
 
 
 def test_a_recorder_silences_the_actions(tmp_path):

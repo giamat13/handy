@@ -11,8 +11,9 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import actions
+import autostart
 import commands
-from custom_gestures import Recorder, validate_name
+from custom_gestures import KIND_HAND, KINDS, Recorder, validate_name
 from version import FULL_VERSION
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
@@ -20,7 +21,8 @@ MAX_BODY = 64 * 1024
 UI_GONE_AFTER = 120.0   # שניות בלי שום פנייה מהדף (דפדפן שקרס). סגירה רגילה מדווחת מיד דרך /api/bye
 BYE_GRACE = 3.0         # אחרי bye מחכים רגע: רענון של הדף שולח bye ומיד אחריו פנייה חדשה
 
-BOOL_KEYS = ("show_hand_mesh", "show_face_mesh", "show_trail", "show_coords", "run_in_background", "auto_update_check", "beta_channel")
+BOOL_KEYS = ("show_hand_mesh", "show_face_mesh", "show_trail", "show_coords", "show_head_axes", "show_pinch_gauge", "show_ripples",
+             "run_in_background", "auto_update_check", "beta_channel")
 CHOICES = {"control_source": ("hand", "head"), "control_hand": ("right", "left", "both")}
 RANGES = {"sensitivity": (0.4, 3.0), "smoothing": (0.0, 1.0)}
 CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8",
@@ -47,7 +49,7 @@ class Backend:
         self.updates, self.save, self.quit_cb, self._pick, self.clock = updates, save, quit_cb, pick_file, clock
         self.config_version = 1   # עולה בכל שינוי הגדרות / מחוות, והדף טוען מחדש כשהוא משתנה
         self.rec = None
-        self.rec_result = None    # {"ok": bool, "text": str} אחרי ההקלטה האחרונה
+        self.rec_result = None    # {"ok": bool, "text": str, "kind": hand / head} אחרי ההקלטה האחרונה
         self.ui_open = False
         self._last_ui = None
         self._bye_at = None
@@ -84,23 +86,52 @@ class Backend:
     def names(self):
         return {**actions.GESTURES, **self.store.names()}
 
-    def _row(self, gid, name):
+    def _row(self, gid, name, kind=KIND_HAND):
         b = self.cfg["bindings"].get(gid, "none")
-        return {"id": gid, "name": name, "binding": b, "text": actions.binding_text(b)}
+        return {"id": gid, "name": name, "kind": kind, "binding": b, "text": actions.binding_text(b)}
+
+    def _autostart(self):
+        try:
+            return autostart.is_enabled()
+        except OSError:
+            return False
 
     def config(self):
         c = self.cfg
+        kinds = self.store.kinds()
         return {
             "version": self.config_version,
             "app_version": FULL_VERSION,
-            "settings": {k: c[k] for k in (*BOOL_KEYS, *CHOICES, *RANGES)},
+            "settings": {**{k: c[k] for k in (*BOOL_KEYS, *CHOICES, *RANGES)}, "autostart": self._autostart()},
             "control_enabled": c["control_enabled"],
             "groups": {
                 "hand": [self._row(g, n) for g, n in actions.GESTURES.items()],
-                "custom": [self._row(g, n) for g, n in self.store.names().items()],
+                "custom": [self._row(g, n, kinds.get(g, KIND_HAND)) for g, n in self.store.names().items()],
             },
             "actions": [{"id": k, "label": v, "param": k in actions.PARAM_ACTIONS} for k, v in actions.ACTIONS.items()],
             "limits": {k: list(v) for k, v in RANGES.items()},
+        }
+
+    def perf(self):
+        """קצב ומשך של כל שלב בדרך מהפריים לסמן (לשונית האבחון). None = השלב לא נמדד כאן. ms = אלפיות שנייה, fps = פעמים בשנייה."""
+        t, r, m = self.tracker, self.renderer, self.mouse
+
+        def val(obj, attr, field):
+            meter = getattr(obj, attr, None)
+            v = getattr(meter, field, None)
+            return None if v is None else round(v, 1)
+
+        return {
+            "camera_fps": val(getattr(t, "camera", None), "rate", "rate"),
+            "tracker_fps": val(t, "rate", "rate"),
+            "hands_ms": val(t, "hands_ms", "ms"),
+            "face_ms": val(t, "face_ms", "ms"),
+            "logic_ms": val(t, "logic_ms", "ms"),
+            "latency_ms": val(t, "latency_ms", "ms"),
+            "draw_fps": val(r, "draw_rate", "rate"),
+            "draw_ms": val(r, "draw_ms", "ms"),
+            "encode_ms": val(r, "encode_ms", "ms"),
+            "cursor_hz": val(m, "glide_rate", "rate"),
         }
 
     def state(self):
@@ -112,10 +143,15 @@ class Backend:
             "config_version": self.config_version,
             "fps": round(self.tracker.fps, 1),
             "detect": self.renderer.detect,
+            "detect_hand": getattr(self.renderer, "detect_hand", self.renderer.detect),
+            "detect_head": getattr(self.renderer, "detect_head", "—"),
+            "conf": {g: round(float(v), 2) for g, v in getattr(self.renderer, "conf", {}).items()},
+            "perf": self.perf(),
             "enabled": self.cfg["control_enabled"],
             "camera": bool(getattr(self.tracker.camera, "opened", True)),
             "active_hand": {0: "left", 1: "right"}.get(slot),
-            "recording": None if rec is None else {"name": rec.name, "mode": rec.mode, "progress": round(rec.progress, 3), "hint": rec.hint},
+            "recording": None if rec is None else {"name": rec.name, "mode": rec.mode, "kind": rec.kind, "progress": round(rec.progress, 3),
+                                                   "hint": rec.hint},
             "rec_result": self.rec_result,
             "update": self.updates.snapshot(),
         }
@@ -126,6 +162,13 @@ class Backend:
 
     def set_value(self, body):
         key, value = body.get("key"), body.get("value")
+        if key == "autostart":   # נשמר במערכת (לא ב-settings.json): ראה autostart.py
+            try:
+                autostart.set_enabled(_bool(value))
+            except OSError as e:
+                raise ApiError(f"לא הצלחתי לעדכן את ההפעלה עם המחשב: {e}")
+            self._changed()
+            return {"ok": True}
         if key in BOOL_KEYS:
             self.cfg[key] = _bool(value)
         elif key in CHOICES:
@@ -181,10 +224,11 @@ class Backend:
         op = body.get("op")
         gid = body.get("id")
         if op == "record":
-            return self._start_recording(body.get("name"), gid, body.get("mode", "new"))
+            return self._start_recording(body.get("name"), gid, body.get("mode", "new"), body.get("kind"))
         if op == "cancel":
+            kind = self.rec.kind if self.rec is not None else None
             self._end_recording()
-            self.rec_result = {"ok": True, "text": "ההקלטה בוטלה"}
+            self.rec_result = {"ok": True, "text": "ההקלטה בוטלה", "kind": kind}
             return {"ok": True}
         if op in ("rename", "delete") and gid not in self.store.names():
             raise ApiError("מחווה לא מוכרת")
@@ -202,7 +246,8 @@ class Backend:
         self._changed()
         return {"ok": True}
 
-    def _start_recording(self, name, gid, mode):
+    def _start_recording(self, name, gid, mode, kind=None):
+        """kind (hand / head) חובה למחווה חדשה: בכל יצירה בוחרים מי מבצע אותה. בהקלטה מחדש ובאימון הסוג נשאר כמו של המחווה."""
         if self.rec is not None:
             raise ApiError("כבר מקליטים")
         if mode not in ("new", "replace", "train"):
@@ -211,6 +256,8 @@ class Backend:
             raise ApiError("לא נמצאה מצלמה")
         try:
             if mode == "new":
+                if kind not in KINDS:
+                    raise ValueError("בחר מי מבצע את המחווה: יד או ראש")
                 name = validate_name(name)
                 if name.casefold() in {n.casefold() for n in self.store.names().values()}:
                     raise ValueError("כבר יש מחווה בשם הזה")
@@ -218,9 +265,10 @@ class Backend:
                 if gid not in self.store.names():
                     raise ValueError("מחווה לא מוכרת")
                 name = self.store.names()[gid]
+                kind = self.store.kinds()[gid]
         except ValueError as e:
             raise ApiError(str(e))
-        self.rec = Recorder(name, gid if mode != "new" else None)
+        self.rec = Recorder(name, gid if mode != "new" else None, kind)
         self.rec.mode = mode
         self.rec_result = None
         self.tracker.recorder = self.rec  # בזמן ההקלטה אף פעולה לא מופעלת
@@ -240,13 +288,13 @@ class Backend:
                 text = f"'{rec.name}' הוקלטה מחדש."
             else:
                 self.store.add(rec.name, rec)
-                text = f"'{rec.name}' נשמרה. אפשר לקשור אותה לפעולה בלשונית מחוות יד."
+                text = f"'{rec.name}' נשמרה. אפשר לקשור אותה לפעולה ברשימה למטה."
             overlap = rec.builtin_overlap()
             if overlap:  # מותר, והמותאמת גוברת: אומרים את זה במפורש
                 text += f" התנוחה דומה למחווה המובנית '{actions.GESTURES.get(overlap, overlap)}': המחווה שלך מקבלת עדיפות והמובנית לא תופעל בתנוחה הזו."
-            self.rec_result = {"ok": True, "text": text}
+            self.rec_result = {"ok": True, "text": text, "kind": rec.kind}
         except (ValueError, KeyError) as e:
-            self.rec_result = {"ok": False, "text": str(e)}
+            self.rec_result = {"ok": False, "text": str(e), "kind": rec.kind}
         self._changed()
 
     # --- עדכונים ויציאה ---

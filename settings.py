@@ -106,6 +106,9 @@ DEFAULTS = {
     "show_face_mesh": True,
     "show_trail": True,        # שובל אחרי הנקודה השולטת
     "show_coords": True,       # קואורדינטות הסמן על הווידאו
+    "show_head_axes": True,    # צירי הראש התלת-ממדיים מעל האף, עם הזוויות
+    "show_pinch_gauge": True,  # מד המרחק בין האגודל לאצבע
+    "show_ripples": True,      # גל שמתרחב בנקודת כל קליק
     "control_enabled": False,  # העכבר לא זז עד שהמשתמש מדליק (או F8)
     "control_source": "hand",  # "hand" או "head"
     "control_hand": "both",    # "right", "left" או "both": איזו יד שולטת

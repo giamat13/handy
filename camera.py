@@ -5,6 +5,8 @@ import time
 
 import cv2
 
+from perf import RateMeter
+
 
 class Camera:
     def __init__(self, index=0, width=640, height=480):
@@ -21,6 +23,8 @@ class Camera:
             self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
             self.cap.set(cv2.CAP_PROP_EXPOSURE, -5)
         self.opened = self.cap.isOpened()
+        self.rate = RateMeter()   # כמה פריימים המצלמה באמת מספקת בשנייה (שונה ממה שהתוכנה מציירת)
+        self.stamp = None         # מתי הגיע הפריים האחרון (perf_counter), למדידת ההשהיה עד הסמן
         self._frame = None
         self._id = 0
         self._cond = threading.Condition()
@@ -40,8 +44,10 @@ class Camera:
                 time.sleep(0.01)
                 continue
             frame = cv2.flip(frame, 1)  # מראה, כדי שהתנועה תרגיש טבעית
+            self.rate.tick()
             with self._cond:
                 self._frame = frame
+                self.stamp = time.perf_counter()
                 self._id += 1
                 self._cond.notify_all()
 

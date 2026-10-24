@@ -4,9 +4,11 @@ import math
 import sys
 import threading
 import time
+from collections import deque
 
 import actions
 import commands
+from perf import RateMeter
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +33,9 @@ _CENTER = {"hand": (0.5, 0.45), "head": (0.5, 0.5)}
 # משבצות הידיים כפי שה-Tracker מפרסם (signs[0] = שמאל, signs[1] = ימין)
 _SLOTS = {"left": {0}, "right": {1}, "both": {0, 1}}
 SLOT_NAMES = {0: "Left", 1: "Right"}
+HEAD_SLOT = 2   # signs[2] = מחווה מותאמת של הראש: פועלת בלי קשר לאיזו יד שולטת
+
+CLICK_EVENTS = 16   # כמה קליקים אחרונים נשמרים לתצוגה (גלי הקליק על הווידאו)
 
 
 class OneEuro:
@@ -166,6 +171,8 @@ class MouseController:
         self._target = self._cur = self._written = None   # יעד הסמן, מיקומו החלק, ומה שנכתב לעכבר בפועל
         self._glide_thread = None
         self._glide_stop = threading.Event()
+        self.click_events = deque(maxlen=CLICK_EVENTS)   # (זמן, "left" / "right" / "middle" / "double", נקודת הפריים) לגלי קליק
+        self.glide_rate = RateMeter()                    # כמה פעמים בשנייה הסמן האמיתי באמת זז
 
     def recenter_head(self):
         """קובע את מיקום הראש הנוכחי כמרכז המסך."""
@@ -277,13 +284,14 @@ class MouseController:
         if pos != self._written:
             self._written = pos
             self.mouse.position = pos
+            self.glide_rate.tick()
 
     def update(self, hands, face, signs, labels=None):
         """נקרא מחוט המעקב אחרי כל פריים. signs לפי משבצות (0 שמאל, 1 ימין); labels = משבצת לכל יד ב-hands (אם חסר: לפי הסדר)."""
         now = time.perf_counter()
         allowed = self.allowed_slots()
-        # רק מחוות של היד השולטת נחשבות. קריצה לא קשורה ליד
-        raw = {s for i, s in enumerate(signs) if s and i in allowed}
+        # מחוות של היד השולטת נחשבות; מחוות הראש (HEAD_SLOT) לא קשורות ליד ולכן תמיד
+        raw = {s for i, s in enumerate(signs) if s and (i in allowed or i == HEAD_SLOT)}
 
         p, src = self._point(hands, face, labels)
         self.point = p
@@ -344,16 +352,24 @@ class MouseController:
                 self.freeze_until = now + _FREEZE
                 self.held[gesture] = button       # משתחרר כשהמחווה נגמרת (_release_gesture)
                 self.mouse.press(button)
+                self._note_click(button, now)
             else:
                 self.last_click = now
                 self.freeze_until = now + _FREEZE
                 button, count = _CLICKS[action]
                 self.mouse.click(button, count)
+                self._note_click("double", now)
         elif action in ("hotkey", "script"):
             if now - self.last_command < _COMMAND_COOLDOWN:
                 return
             self.last_command = now
             self._run_command(binding, gesture)
+
+    def _note_click(self, kind, now):
+        """רושם קליק לתצוגה (גל על הווידאו, בנקודה השולטת). בלי נקודה (היד נעלמה) אין איפה לצייר."""
+        p = self.point
+        if p is not None:
+            self.click_events.append((now, kind, (float(p[0]), float(p[1]))))
 
     @property
     def dragging(self):
