@@ -40,7 +40,8 @@ const mock = {
         ["open", "כף פתוחה", "none"], ["point", "הצבעה", "none"], ["three", "שלוש אצבעות", "scroll_up"], ["rock", "רוק", "scroll_down"]]
         .map(([id, name, binding]) => ({ id, name, binding })),
       head: [["nod", "הנהון (כן)", "none"], ["shake", "ניעור ראש (לא)", "none"], ["tilt_left", "הטיית ראש שמאלה", "none"], ["tilt_right", "הטיית ראש ימינה", "none"],
-        ["lean_forward", "ראש קדימה (התקרבות)", "none"], ["lean_back", "ראש אחורה (התרחקות)", "none"]].map(([id, name, binding]) => ({ id, name, binding, kind: "head" })),
+        ["lean_forward", "ראש קדימה (התקרבות)", "none"], ["lean_back", "ראש אחורה (התרחקות)", "none"],
+        ["eye_wink_left", "קריצה בעין שמאל", "none"], ["eye_wink_right", "קריצה בעין ימין", "none"], ["eye_blink_long", "מצמוץ ארוך", "none"]].map(([id, name, binding]) => ({ id, name, binding, kind: "head" })),
       custom: [{ id: "custom:demo", name: "אצבע קטנה וקמיצה", kind: "hand", binding: "none" },
         { id: "custom:demo2", name: "ראש מוטה ימינה", kind: "head", binding: "none" }],
     },

@@ -8,13 +8,14 @@ import mediapipe as mp
 import numpy as np
 
 import head_pose
+from eye_gestures import EyeGestures
 from custom_gestures import KIND_HEAD, CustomMatcher, pick_sign
 from head_motion import HeadLean, HeadMotion, HeadTilt
 from perf import RateMeter, TimeMeter
 from signs import Stabilizer, assign_slots, classify_hand, sign_scores
 
 SLOT_LABELS = ("Left", "Right")  # signs[0] = יד שמאל, signs[1] = יד ימין (כפי שהיא נראית למשתמש: הווידאו הפוך כמו מראה)
-# signs[2] = מחווה מותאמת של הראש, signs[3] = הנהון / ניעור, signs[4] = הטיית ראש, signs[5] = ראש קדימה / אחורה (mouse_control.HEAD_SLOTS)
+# signs[2] = מחווה מותאמת של הראש, signs[3] = הנהון / ניעור, signs[4] = הטיית ראש, signs[5] = ראש קדימה / אחורה, signs[6] = קריצה / מצמוץ (mouse_control.HEAD_SLOTS)
 
 # slots: משבצת (0/1) לכל יד ברשימת hands. point: הנקודה השולטת בקואורדינטות הפריים, או None.
 # pose: HeadPose (head_pose.py) או None. conf: {מזהה מחווה: ביטחון 0..1} ליד המשמשת למיקוד ולראש (לתצוגת האבחון)
@@ -31,6 +32,7 @@ class Tracker:
         self.head_motion = HeadMotion()   # הנהון / ניעור ראש מתוך תנועת הזוויות
         self.head_tilt = HeadTilt()       # הטיית ראש לכתף מתוך זווית ה-roll
         self.head_lean = HeadLean()       # ראש קדימה / אחורה מתוך גודל הפנים
+        self.eyes = EyeGestures()         # קריצה ומצמוץ ארוך מתוך פתיחות העיניים
         self.recorder = None  # Recorder פעיל בזמן הקלטת מחווה: אז לא מפעילים פעולות
         self.sign_stabs = [Stabilizer(3), Stabilizer(3)]
         self.hands = mp.solutions.hands.Hands(
@@ -41,7 +43,7 @@ class Tracker:
         )
         self.face = mp.solutions.face_mesh.FaceMesh(
             max_num_faces=1,
-            refine_landmarks=False,
+            refine_landmarks=True,   # מדויק יותר סביב העיניים והפה (העפעפיים לקריצה), במחיר מעט זמן עיבוד: ראה "אבחון"
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5,
         )
@@ -116,7 +118,8 @@ class Tracker:
             signs.append(self.head_motion.update(pose, time.perf_counter()))
             signs.append(self.head_tilt.update(pose, time.perf_counter()))
             signs.append(self.head_lean.update(pose, time.perf_counter()))
-            conf = {**self.head_motion.scores, **self.head_tilt.scores, **self.head_lean.scores}
+            signs.append(self.eyes.update(face_px, pose, time.perf_counter()))
+            conf = {**self.head_motion.scores, **self.head_tilt.scores, **self.head_lean.scores, **self.eyes.scores}
             focus = self._focus_slot(by_slot)
             if focus is not None:
                 conf.update(sign_scores(by_slot[focus]))
@@ -133,10 +136,11 @@ class Tracker:
                     allowed = self.controller.allowed_slots() if self.controller is not None else (0, 1)
                     slot = next((s for s in (1, 0) if s in allowed and s in by_slot), None)
                     rec.add(by_slot[slot] if slot is not None else None, SLOT_LABELS[slot] if slot is not None else None)
-                signs = [None] * 6
+                signs = [None] * 7
                 self.head_motion.reset()
                 self.head_tilt.reset()
                 self.head_lean.reset()
+                self.eyes.reset()
             if self.controller is not None:
                 self.controller.update(hands, face, signs, slots)
             point = self.controller.point if self.controller is not None else None

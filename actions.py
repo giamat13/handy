@@ -22,6 +22,9 @@ HEAD_GESTURES = {
     "tilt_right": "הטיית ראש ימינה",
     "lean_forward": "ראש קדימה (התקרבות)",
     "lean_back": "ראש אחורה (התרחקות)",
+    "eye_wink_left": "קריצה בעין שמאל",
+    "eye_wink_right": "קריצה בעין ימין",
+    "eye_blink_long": "מצמוץ ארוך",
 }
 
 # פעולות ישנות שהפכו ללחיצה רגילה: לחיצה שמחזיקים (המחווה) היא לחיצה ארוכה, אז אין להן יותר פעולה נפרדת
@@ -65,6 +68,9 @@ DEFAULT_BINDINGS = {
     "tilt_right": "none",
     "lean_forward": "none",
     "lean_back": "none",
+    "eye_wink_left": "none",
+    "eye_wink_right": "none",
+    "eye_blink_long": "none",
 }
 
 
