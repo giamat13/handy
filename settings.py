@@ -132,6 +132,8 @@ def _upgrade(saved):
             value = bindings.pop(old)
             if value != "none":
                 bindings.setdefault(new, value)
+    for g in [g for g in bindings if g.startswith("wink_")]:  # קריצות הוסרו מהתוכנה
+        bindings.pop(g)
     for g, v in list(bindings.items()):  # גרירה / לחיצה ארוכה נפרדות פסו: לחיצה רגילה שמחזיקים היא לחיצה ארוכה
         if isinstance(v, str) and v in LEGACY_ACTIONS:
             bindings[g] = LEGACY_ACTIONS[v]

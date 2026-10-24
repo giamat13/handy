@@ -1,21 +1,20 @@
 # Handy 2
 
-Control your PC with a webcam (Windows, macOS, Linux). Hand or head tracking moves the mouse, and a wink or a hand sign triggers clicks, scrolling, dragging, key combinations or any program you choose.
+Control your PC with a webcam (Windows, macOS, Linux). Hand or head tracking moves the mouse, and a hand sign triggers clicks, scrolling, dragging, key combinations or any program you choose.
 
-The main window shows the live camera with the MediaPipe hand mesh and face landmarks drawn on top. A status line under the video shows what is detected right now (for example "wink left" or "thumbs up").
+The main window shows the live camera with the MediaPipe hand mesh and face landmarks drawn on top. A status line under the video shows what is detected right now (for example "thumbs up").
 
 ## Features
 
 - Live video with hand mesh (21 points) and face landmarks, switchable in settings
 - Mouse control by hand (palm center) or head (nose tip), with smoothing and sensitivity
 - **Dominant hand**: right, left or both control the mouse; the active hand is marked on the video
-- Wink detection (left / right; a normal blink is ignored)
 - Hand signs: pinch, OK, victory (V), hang loose, thumbs up / down, fist, open palm, point, three fingers, rock
 - **Custom gestures**: record your own static hand poses, name them, rename, re-record or delete them
 - Every gesture can be mapped to an action: left / right / middle / double click, scroll up / down, turn the control on / off, **press a key combination** (`Ctrl+C`, `Alt+Tab`, `Win+D`) or **run a program or script** with arguments
 - A click (or a key combination) stays pressed for as long as you keep making the gesture: a short gesture is a click, a held gesture is a long press or a drag. There is no separate long-press action
 - **Run in the background**: closing the window can leave the program running (system tray) with the mouse control
-- Hand gestures and head gestures (winks) each have their own tab; the interface is a web page (`web/`), see below
+- The interface is a web page (`web/`), see below
 - Optional **trail** after the controlling point and **cursor coordinates** on the video
 - Mouse control is off by default (and always off when the program starts)
 
@@ -23,7 +22,6 @@ The main window shows the live camera with the MediaPipe hand mesh and face land
 
 | Gesture | Action |
 | --- | --- |
-| Wink left / right | Left / right click |
 | OK | Double click |
 | Victory (V) | Left click |
 | Hang loose | Right click |
@@ -116,7 +114,7 @@ Version 2.0.x kept them in `%APPDATA%\Handy2`. The first start of the new versio
 | `update_service.py` | Automatic update (check, download, install) without windows |
 | `camera.py` | Threaded camera capture, always the latest frame |
 | `tracker.py` | MediaPipe hands and face, publishes frame and landmarks together |
-| `signs.py` | Hand sign classifier and wink detector |
+| `signs.py` | Hand sign classifier |
 | `custom_gestures.py` | Recording, storing and recognising custom gestures |
 | `mouse_control.py` | Cursor movement, clicks, scrolling, dominant hand, key and program actions |
 | `commands.py` | Validation and running of key combinations and programs (no shell) |
@@ -154,7 +152,7 @@ The Windows build and the tests decide whether a release is published; the other
 
 - [x] Live camera with hand and face mesh
 - [x] Mouse control by hand or head
-- [x] Click and scroll by wink or hand sign
+- [x] Click and scroll by hand sign
 - [x] Gesture-to-action mapping
 - [x] Recording custom gestures
 - [x] Key combinations and programs bound to gestures

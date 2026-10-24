@@ -12,11 +12,9 @@ VIEW_W, VIEW_H = 800, 600
 WATCH_TIMEOUT = 3.0  # בלי בקשת וידאו כל כך הרבה זמן = אף אחד לא צופה, ואז לא מציירים ולא מקודדים
 
 
-def detect_text(signs, wink, names):
+def detect_text(signs, names):
     """מה מזוהה עכשיו, לשורת הסטטוס: קריצה, ואחריה מחוות היד (מובנות ומותאמות)."""
     found = [names[s] for s in signs if s in names]
-    if wink:
-        found.insert(0, GESTURES[wink])
     return " + ".join(found) if found else "—"
 
 
@@ -87,7 +85,7 @@ class Renderer:
                 time.sleep(0.004)
                 continue
             last = out.id
-            self.detect = detect_text(out.signs, out.wink, self.names())
+            self.detect = detect_text(out.signs, self.names())
             self.fps = self.tracker.fps
             if time.monotonic() > self._want_until:
                 continue

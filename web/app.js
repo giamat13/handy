@@ -35,12 +35,10 @@ const mock = {
         ["thumbs_up", "לייק", "toggle_control"], ["thumbs_down", "דיסלייק", "none"], ["fist", "אגרוף", { type: "hotkey", keys: "Ctrl+C" }],
         ["open", "כף פתוחה", "none"], ["point", "הצבעה", "none"], ["three", "שלוש אצבעות", "scroll_up"], ["rock", "רוק", "scroll_down"]]
         .map(([id, name, binding]) => ({ id, name, binding })),
-      head: [["wink_left", "קריצה שמאל", "left_click"], ["wink_right", "קריצה ימין", "right_click"]].map(([id, name, binding]) => ({ id, name, binding })),
       custom: [{ id: "custom:demo", name: "אצבע קטנה וקמיצה", binding: "none" }],
     },
   },
   state: { config_version: 1, fps: 30, detect: "ניצחון (V)", enabled: false, camera: true, active_hand: "right", recording: null, rec_result: null,
-    eyes: { right: 0.18, left: 0.82, learning: false },
     update: { status: "idle", progress: 0, message: "", notice: null, info: null } },
 };
 
@@ -141,7 +139,6 @@ function makeRow(g, extraButtons) {
 function renderRows() {
   const g = config.groups;
   $("#rows-hand").replaceChildren(...g.hand.map((x) => makeRow(x)));
-  $("#rows-head").replaceChildren(...g.head.map((x) => makeRow(x)));
   $("#rows-custom").replaceChildren(...g.custom.map(customRow));
   if (!g.custom.length) $("#rows-custom").append(el("p", "muted small", "עדיין אין מחוות מותאמות"));
 }
@@ -261,22 +258,6 @@ function renderUpdate(u) {
   else { msg.textContent = ""; msg.className = "msg"; }
 }
 
-// --- מצב העיניים: כמה פתוחה כל עין ביחס לפתיחה הרגילה שלה (הקו הוא סף הסגירה) ---
-const EYE_FULL = 1.2;   // רוחב המד = 120% מהרגיל
-const EYE_CLOSED = 0.7;
-function renderEyes(eyes) {
-  for (const side of ["left", "right"]) {
-    const bar = $("#eye-" + side), text = $("#eye-" + side + "-text"), v = eyes ? eyes[side] : null;
-    if (v === null || v === undefined) { bar.style.width = "0"; text.textContent = "—"; bar.classList.remove("closed"); continue; }
-    bar.style.width = Math.min(v / EYE_FULL, 1) * 100 + "%";
-    bar.classList.toggle("closed", v < EYE_CLOSED);
-    text.textContent = Math.round(v * 100) + "%";
-  }
-  $("#eye-note").textContent = !eyes || eyes.learning
-    ? "לומד את העיניים שלך… הסתכל למצלמה עם שתי עיניים פתוחות."
-    : "קריצה מזוהה כשעין אחת יורדת מתחת לקו והשנייה נשארת פתוחה יותר.";
-}
-
 // --- סטטוס שוטף -------------------------------------------------------------
 function renderState(st) {
   const first = !lastState;
@@ -296,7 +277,6 @@ function renderState(st) {
   const rows = config ? Object.values(config.groups).flat() : [];
   const hit = rows.find((r) => live.has(r.name));
   $("#detect-action").textContent = hit ? hit.text : "—";
-  renderEyes(st.eyes);
   renderRecording(st);
   renderUpdate(st.update);
   if (first || !config || st.config_version !== config.version || config.stale) loadConfig().catch(() => {});

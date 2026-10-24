@@ -100,12 +100,12 @@ def be(tmp_path):
 
 # --- config and state ----------------------------------------------------------
 
-def test_hand_and_head_gestures_are_in_separate_groups(be):
+def test_gestures_are_all_hand_gestures_and_there_are_no_winks(be):
     g = be.config()["groups"]
-    hand, head = {r["id"] for r in g["hand"]}, {r["id"] for r in g["head"]}
-    assert head == {"wink_left", "wink_right"} and not hand & head
+    hand = {r["id"] for r in g["hand"]}
+    assert "head" not in g and not any(k.startswith("wink") for k in actions.GESTURES)
     assert {"victory", "hang_loose", "thumbs_up", "fist"} <= hand
-    assert hand | head == set(actions.GESTURES)
+    assert hand == set(actions.GESTURES)
     assert next(r for r in g["hand"] if r["id"] == "thumbs_up")["text"] == actions.ACTIONS["toggle_control"]
 
 
@@ -383,7 +383,11 @@ def test_http_errors_and_limits(server):
     st, body, _ = call(server, "/api/set", {"key": "sensitivity", "value": 50})
     assert st == 400 and "error" in json.loads(body)
     assert call(server, "/api/nothing", {})[0] == 404
-    assert call(server, "/api/set", {"pad": "x" * (webui.MAX_BODY + 10)})[0] == 413
+    try:                                                                    # too big: refused (Windows may also just cut the connection)
+        assert call(server, "/api/set", {"pad": "x" * (webui.MAX_BODY + 10)})[0] == 413
+    except (ConnectionError, urllib.error.URLError):
+        pass
+    assert server.backend.cfg["show_trail"] is False
     req = urllib.request.Request(f"http://127.0.0.1:{server.port}/api/set", data=b"[1,2]", headers={"X-Handy-Token": server.token})
     with pytest.raises(urllib.error.HTTPError) as e:
         urllib.request.urlopen(req, timeout=5)
@@ -392,7 +396,7 @@ def test_http_errors_and_limits(server):
 
 def test_config_and_bye_over_http(server):
     st, body, _ = call(server, "/api/config")
-    assert st == 200 and json.loads(body)["groups"]["head"][0]["id"] == "wink_left"
+    assert st == 200 and json.loads(body)["groups"]["hand"][0]["id"] == "pinch"
     assert call(server, "/api/bye", {})[0] == 200 and server.backend._bye_at is not None
 
 
@@ -416,9 +420,9 @@ def test_the_page_is_separate_files_and_uses_relative_paths():
     js = (ROOT / "web" / "app.js").read_text("utf-8")
     assert "__TOKEN__" in html and "<style" not in html                       # the CSS lives in its own file
     assert ".innerHTML" not in js and "insertAdjacentHTML" not in js and "eval(" not in js   # text from the server is only ever shown as text
-    for tab in ("hand", "head", "settings", "updates"):
+    for tab in ("hand", "settings", "updates"):
         assert f'id="tab-{tab}"' in html and f'data-tab="{tab}"' in html
-    assert 'id="rows-hand"' in html and 'id="rows-head"' in html            # hand and head gestures each have their own place
+    assert 'id="rows-hand"' in html and "tab-head" not in html and "eye-left" not in html   # no wink / head-gesture area any more
 
 
 # --- the update service --------------------------------------------------------

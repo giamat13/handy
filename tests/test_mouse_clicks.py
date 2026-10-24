@@ -59,11 +59,11 @@ def make(monkeypatch, enabled=True, control_hand="both", **bindings):
 
 
 def run(m, t, frames, dt=0.04):
-    """frames: a list of (signs, wink) per camera frame, or (signs, wink, hands, labels)."""
+    """frames: a list of (signs,) per camera frame, or (signs, hands, labels)."""
     for f in frames:
-        signs, wink, *rest = f
+        signs, *rest = f
         hands, labels = rest if rest else ([], None)
-        m.update(hands, None, signs, wink, labels)
+        m.update(hands, None, signs, labels)
         t["now"] += dt
 
 
@@ -74,50 +74,43 @@ def hand_at(x, y):
 
 def test_a_flickering_sign_clicks_once(monkeypatch):
     m, t = make(monkeypatch, pinch="left_click")
-    P, N = (["pinch", None], None), ([None, None], None)
+    P, N = (["pinch", None],), ([None, None],)
     run(m, t, [P, P, N, P, P, N, N, P, P, P, N, P])        # the sign drops out for a frame or two several times
-    assert len(m.mouse.clicks) == 1
-
-
-def test_a_flickering_wink_clicks_once(monkeypatch):
-    m, t = make(monkeypatch)                                 # wink_left -> left click by default
-    W, N = ([None, None], "wink_left"), ([None, None], None)
-    run(m, t, [W, W, N, W, W, W, N, W])
     assert len(m.mouse.clicks) == 1
 
 
 def test_two_separate_gestures_click_twice(monkeypatch):
     m, t = make(monkeypatch, pinch="left_click")
-    P, N = (["pinch", None], None), ([None, None], None)
+    P, N = (["pinch", None],), ([None, None],)
     run(m, t, [P] * 3 + [N] * 25 + [P] * 3)                  # about a second apart
     assert len(m.mouse.clicks) == 2
 
 
 def test_two_different_gestures_at_once_click_once(monkeypatch):
     m, t = make(monkeypatch, pinch="left_click")
-    run(m, t, [(["pinch", None], "wink_left")] * 3)          # pinch + wink together
+    run(m, t, [(["pinch", "victory"],)] * 3)                 # two left-click gestures together
     assert len(m.mouse.clicks) == 1
 
 
 def test_scrolling_stops_at_once(monkeypatch):
     m, t = make(monkeypatch)                                 # three fingers -> scroll up by default
-    run(m, t, [(["three", None], None)] * 5)
+    run(m, t, [(["three", None],)] * 5)
     n = m.mouse.scrolls
-    run(m, t, [(N2, None)] * 5)
+    run(m, t, [(N2,)] * 5)
     assert n >= 1 and m.mouse.scrolls == n
 
 
 def test_default_gestures(monkeypatch):
     m, t = make(monkeypatch)
-    run(m, t, [(["hang_loose", None], None)] * 3)
+    run(m, t, [(["hang_loose", None],)] * 3)
     assert m.mouse.clicks == [("right", 1)]                  # Hang Loose = right click
-    run(m, t, [(N2, None)] * 25 + [(["victory", None], None)] * 3)
+    run(m, t, [(N2,)] * 25 + [(["victory", None],)] * 3)
     assert m.mouse.clicks == [("right", 1), ("left", 1)]     # Victory = left click
 
 
 def test_a_short_gesture_is_a_click_and_a_held_gesture_is_a_long_press(monkeypatch):
     m, t = make(monkeypatch, pinch="left_click")
-    P, N = (["pinch", None], None), (N2, None)
+    P, N = (["pinch", None],), (N2,)
     run(m, t, [P] * 3 + [N] * 25)                                   # a short gesture: pressed, then let go when it ends
     assert m.mouse.pressed == ["left"] and m.mouse.released == ["left"] and m.dragging is None
     run(m, t, [P] * 60)                                             # now the gesture is held for a couple of seconds
@@ -128,25 +121,25 @@ def test_a_short_gesture_is_a_click_and_a_held_gesture_is_a_long_press(monkeypat
 
 def test_right_and_middle_clicks_hold_the_same_way(monkeypatch):
     m, t = make(monkeypatch, pinch="right_click", fist="middle_click")
-    run(m, t, [(["pinch", None], None)] * 3 + [(N2, None)] * 25 + [(["fist", None], None)] * 3 + [(N2, None)] * 12)
+    run(m, t, [(["pinch", None],)] * 3 + [(N2,)] * 25 + [(["fist", None],)] * 3 + [(N2,)] * 12)
     assert m.mouse.pressed == ["right", "middle"] and m.mouse.released == ["right", "middle"]
 
 
 def test_a_double_click_stays_instant(monkeypatch):
     m, t = make(monkeypatch, pinch="double_click")
-    run(m, t, [(["pinch", None], None)] * 30)
+    run(m, t, [(["pinch", None],)] * 30)
     assert m.mouse.clicks == [("left", 2)] and m.mouse.pressed == []
 
 
 def test_old_drag_setting_still_holds_left(monkeypatch):
     m, t = make(monkeypatch, pinch="drag")
-    run(m, t, [(["pinch", None], None)] * 10)
+    run(m, t, [(["pinch", None],)] * 10)
     assert m.dragging == "left"
 
 
 def test_thumbs_up_no_longer_scrolls(monkeypatch):
     m, t = make(monkeypatch)
-    run(m, t, [(["thumbs_up", None], None)] * 5)
+    run(m, t, [(["thumbs_up", None],)] * 5)
     assert m.mouse.scrolls == 0
 
 
@@ -154,29 +147,29 @@ def test_thumbs_up_no_longer_scrolls(monkeypatch):
 
 def test_thumbs_up_turns_control_on_and_off(monkeypatch):
     m, t = make(monkeypatch, enabled=False)
-    run(m, t, [(["thumbs_up", None], None)] * 4)
+    run(m, t, [(["thumbs_up", None],)] * 4)
     assert m.cfg["control_enabled"] is True
-    run(m, t, [(N2, None)] * 30 + [(["thumbs_up", None], None)] * 4)
+    run(m, t, [(N2,)] * 30 + [(["thumbs_up", None],)] * 4)
     assert m.cfg["control_enabled"] is False
 
 
 def test_holding_thumbs_up_toggles_only_once(monkeypatch):
     m, t = make(monkeypatch, enabled=False)
-    run(m, t, [(["thumbs_up", None], None)] * 80)            # a few seconds of holding it
+    run(m, t, [(["thumbs_up", None],)] * 80)            # a few seconds of holding it
     assert m.cfg["control_enabled"] is True
 
 
 def test_other_gestures_do_nothing_while_control_is_off(monkeypatch):
     m, t = make(monkeypatch, enabled=False)
-    run(m, t, [(["hang_loose", None], "wink_left")] * 4 + [(["three", None], None)] * 4)
+    run(m, t, [(["hang_loose", None],)] * 4 + [(["three", None],)] * 4)
     assert m.mouse.clicks == [] and m.mouse.scrolls == 0
 
 
 def test_turning_off_releases_a_drag(monkeypatch):
     m, t = make(monkeypatch, fist="drag")
-    run(m, t, [(["fist", None], None)] * 3)
+    run(m, t, [(["fist", None],)] * 3)
     assert m.dragging == "left"
-    run(m, t, [(N2, None)] * 10 + [(["thumbs_up", None], None)] * 3)
+    run(m, t, [(N2,)] * 10 + [(["thumbs_up", None],)] * 3)
     assert m.dragging is None and m.mouse.released == ["left"]
 
 
@@ -184,56 +177,50 @@ def test_turning_off_releases_a_drag(monkeypatch):
 
 def test_right_hand_only_ignores_left_hand_gestures(monkeypatch):
     m, t = make(monkeypatch, control_hand="right")
-    run(m, t, [(["hang_loose", None], None)] * 3)            # slot 0 = left hand
+    run(m, t, [(["hang_loose", None],)] * 3)            # slot 0 = left hand
     assert m.mouse.clicks == []
-    run(m, t, [([None, "hang_loose"], None)] * 3)            # slot 1 = right hand
+    run(m, t, [([None, "hang_loose"],)] * 3)            # slot 1 = right hand
     assert m.mouse.clicks == [("right", 1)]
 
 
 def test_left_hand_only_ignores_right_hand_gestures(monkeypatch):
     m, t = make(monkeypatch, control_hand="left")
-    run(m, t, [([None, "victory"], None)] * 3)
+    run(m, t, [([None, "victory"],)] * 3)
     assert m.mouse.clicks == []
-    run(m, t, [(["victory", None], None)] * 3)
+    run(m, t, [(["victory", None],)] * 3)
     assert m.mouse.clicks == [("left", 1)]
 
 
 def test_both_hands_work_by_default(monkeypatch):
     m, t = make(monkeypatch)
-    run(m, t, [(["victory", None], None)] * 3 + [(N2, None)] * 25 + [([None, "victory"], None)] * 3)
+    run(m, t, [(["victory", None],)] * 3 + [(N2,)] * 25 + [([None, "victory"],)] * 3)
     assert len(m.mouse.clicks) == 2
-
-
-def test_wink_works_whatever_the_dominant_hand(monkeypatch):
-    m, t = make(monkeypatch, control_hand="right")
-    run(m, t, [(N2, "wink_left")] * 3)
-    assert m.mouse.clicks == [("left", 1)]
 
 
 def test_cursor_follows_only_the_dominant_hand(monkeypatch):
     m, t = make(monkeypatch, control_hand="right")
     left, right = hand_at(0.2, 0.2), hand_at(0.8, 0.6)
-    run(m, t, [(N2, None, [left, right], [0, 1])] * 3)
+    run(m, t, [(N2, [left, right], [0, 1])] * 3)
     assert m.active_slot == 1
     assert np.allclose(m.point, (0.8, 0.6))
-    run(m, t, [(N2, None, [left], [0])] * 3)                 # only the left hand is visible: nothing to follow
+    run(m, t, [(N2, [left], [0])] * 3)                 # only the left hand is visible: nothing to follow
     assert m.active_slot is None and m.point is None
 
 
 def test_with_both_hands_the_cursor_does_not_jump_between_them(monkeypatch):
     m, t = make(monkeypatch)
     left, right = hand_at(0.2, 0.2), hand_at(0.8, 0.6)
-    run(m, t, [(N2, None, [right], [1])] * 3)
+    run(m, t, [(N2, [right], [1])] * 3)
     assert m.active_slot == 1
-    run(m, t, [(N2, None, [left, right], [0, 1])] * 3)       # a second hand appears: stay on the first
+    run(m, t, [(N2, [left, right], [0, 1])] * 3)       # a second hand appears: stay on the first
     assert m.active_slot == 1
-    run(m, t, [(N2, None, [left], [0])] * 3)                 # the first leaves: take the other
+    run(m, t, [(N2, [left], [0])] * 3)                 # the first leaves: take the other
     assert m.active_slot == 0
 
 
 def test_the_point_is_tracked_even_while_control_is_off(monkeypatch):
     m, t = make(monkeypatch, enabled=False)
-    run(m, t, [(N2, None, [hand_at(0.4, 0.5)], [1])])
+    run(m, t, [(N2, [hand_at(0.4, 0.5)], [1])])
     assert np.allclose(m.point, (0.4, 0.5)) and m.mouse.position == (0, 0)   # the cursor itself did not move
 
 
@@ -243,16 +230,16 @@ def test_a_hotkey_binding_presses_the_keys_once(monkeypatch):
     pytest.importorskip("pynput.keyboard")
     from pynput.keyboard import Key
     m, t = make(monkeypatch, fist={"type": "hotkey", "keys": "ctrl+c"})
-    run(m, t, [(["fist", None], None), (["fist", None], None), (N2, None), (["fist", None], None)])
+    run(m, t, [(["fist", None],), (["fist", None],), (N2,), (["fist", None],)])
     assert m._keyboard.log == [("down", Key.ctrl), ("down", "c")]                     # pressed once, and held while the gesture lasts
-    run(m, t, [(N2, None)] * 12)
+    run(m, t, [(N2,)] * 12)
     assert m._keyboard.log == [("down", Key.ctrl), ("down", "c"), ("up", "c"), ("up", Key.ctrl)]   # let go when it ends
 
 
 def test_held_keys_are_let_go_when_the_control_is_switched_off(monkeypatch):
     pytest.importorskip("pynput.keyboard")
     m, t = make(monkeypatch, fist={"type": "hotkey", "keys": "alt+tab"}, thumbs_up="toggle_control")
-    run(m, t, [(["fist", None], None)] * 3)
+    run(m, t, [(["fist", None],)] * 3)
     assert len(m._keyboard.log) == 2
     m.release()
     assert len(m._keyboard.log) == 4 and not m.held_keys
@@ -260,20 +247,20 @@ def test_held_keys_are_let_go_when_the_control_is_switched_off(monkeypatch):
 
 def test_an_invalid_hotkey_binding_is_skipped_without_crashing(monkeypatch):
     m, t = make(monkeypatch, fist={"type": "hotkey", "keys": "ctrl+;calc"})
-    run(m, t, [(["fist", None], None)] * 3)
+    run(m, t, [(["fist", None],)] * 3)
     assert m._keyboard.log == []
 
 
 def test_a_script_binding_is_launched_once_per_gesture(monkeypatch):
     binding = {"type": "script", "path": "C:/x/tool.exe", "args": "--go"}
     m, t = make(monkeypatch, rock=binding)
-    run(m, t, [(["rock", None], None), (N2, None), (["rock", None], None), (["rock", None], None)])
+    run(m, t, [(["rock", None],), (N2,), (["rock", None],), (["rock", None],)])
     assert m.launched == [binding]
 
 
 def test_a_failing_script_does_not_stop_the_tracker(monkeypatch):
     m, t = make(monkeypatch, rock={"type": "script", "path": "C:/x", "args": ""})
     m._launcher = lambda b: (_ for _ in ()).throw(ValueError("gone"))
-    run(m, t, [(["rock", None], None)] * 3)                   # no exception
+    run(m, t, [(["rock", None],)] * 3)                   # no exception
     assert m.mouse.clicks == []
 

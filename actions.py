@@ -1,8 +1,6 @@
 """שמות בעברית למחוות ולפעולות, וברירות המחדל של המיפוי."""
 
 GESTURES = {
-    "wink_left": "קריצה שמאל",
-    "wink_right": "קריצה ימין",
     "pinch": "צביטה",
     "ok": "אוקיי",
     "victory": "ניצחון (V)",
@@ -15,10 +13,6 @@ GESTURES = {
     "three": "שלוש אצבעות",
     "rock": "רוק",
 }
-
-# מחוות ראש/פנים (קריצות) נפרדות ממחוות יד: בממשק לכל קבוצה מקום משלה
-HEAD_GESTURES = {g: GESTURES[g] for g in ("wink_left", "wink_right")}
-HAND_GESTURES = {g: n for g, n in GESTURES.items() if g not in HEAD_GESTURES}
 
 # פעולות ישנות שהפכו ללחיצה רגילה: לחיצה שמחזיקים (המחווה) היא לחיצה ארוכה, אז אין להן יותר פעולה נפרדת
 LEGACY_ACTIONS = {"drag": "left_click", "hold_right": "right_click", "hold_middle": "middle_click"}
@@ -44,8 +38,6 @@ PARAM_ACTIONS = ("hotkey", "script")
 
 # הגלילה עברה מאגודל למעלה/למטה (שמשמש עכשיו להפעלה וכיבוי) לשתי תנוחות מכוונות שלא קורות בטעות
 DEFAULT_BINDINGS = {
-    "wink_left": "left_click",
-    "wink_right": "right_click",
     "pinch": "none",
     "ok": "double_click",
     "victory": "left_click",

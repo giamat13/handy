@@ -7,12 +7,12 @@ import mediapipe as mp
 import numpy as np
 
 from custom_gestures import CustomMatcher, pick_sign
-from signs import Stabilizer, WinkDetector, assign_slots, classify_hand
+from signs import Stabilizer, assign_slots, classify_hand
 
 SLOT_LABELS = ("Left", "Right")  # signs[0] = יד שמאל, signs[1] = יד ימין (כפי שהיא נראית למשתמש: הווידאו הפוך כמו מראה)
 
 # slots: משבצת (0/1) לכל יד ברשימת hands. point: הנקודה השולטת בקואורדינטות הפריים, או None
-TrackOutput = namedtuple("TrackOutput", "id frame hands face signs wink slots point")
+TrackOutput = namedtuple("TrackOutput", "id frame hands face signs slots point")
 
 
 class Tracker:
@@ -23,7 +23,6 @@ class Tracker:
         self.matchers = [CustomMatcher(store), CustomMatcher(store)] if store is not None else None
         self.recorder = None  # Recorder פעיל בזמן הקלטת מחווה: אז לא מפעילים פעולות
         self.sign_stabs = [Stabilizer(3), Stabilizer(3)]
-        self.winker = WinkDetector()
         self.hands = mp.solutions.hands.Hands(
             max_num_hands=2,
             model_complexity=0,
@@ -90,23 +89,22 @@ class Tracker:
                     custom = self.matchers[slot].update(pts, SLOT_LABELS[slot])
                     builtin = pick_sign(custom, self.matchers[slot].claims, builtin)
                 signs.append(builtin)
-            wink = self.winker.update(face, fw, fh)
             rec = self.recorder
             if rec is not None:
                 # בהקלטה לוקחים את היד השולטת (ימין, אם אין הגבלה); אף פעולה לא מופעלת עד שההקלטה נגמרת
                 allowed = self.controller.allowed_slots() if self.controller is not None else (0, 1)
                 slot = next((s for s in (1, 0) if s in allowed and s in by_slot), None)
                 rec.add(by_slot[slot] if slot is not None else None, SLOT_LABELS[slot] if slot is not None else None)
-                signs, wink = [None, None], None
+                signs = [None, None]
             if self.controller is not None:
-                self.controller.update(hands, face, signs, wink, slots)
+                self.controller.update(hands, face, signs, slots)
             point = self.controller.point if self.controller is not None else None
             now = time.perf_counter()
             self.fps = 0.9 * self.fps + 0.1 / max(now - t_prev, 1e-6)
             t_prev = now
             with self._lock:
                 self._out_id += 1
-                self._out = TrackOutput(self._out_id, frame, hands, face, signs, wink, slots, point)
+                self._out = TrackOutput(self._out_id, frame, hands, face, signs, slots, point)
 
     def latest(self, last_id):
         with self._lock:

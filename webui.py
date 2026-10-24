@@ -27,14 +27,6 @@ CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset
                  ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon"}
 
 
-class _NoEyes:
-    """כשאין גלאי קריצות (בבדיקות): קריאה ריקה."""
-
-    @staticmethod
-    def readout():
-        return {"right": None, "left": None, "learning": True}
-
-
 class ApiError(Exception):
     def __init__(self, message, status=400):
         super().__init__(message)
@@ -104,8 +96,7 @@ class Backend:
             "settings": {k: c[k] for k in (*BOOL_KEYS, *CHOICES, *RANGES)},
             "control_enabled": c["control_enabled"],
             "groups": {
-                "hand": [self._row(g, n) for g, n in actions.HAND_GESTURES.items()],
-                "head": [self._row(g, n) for g, n in actions.HEAD_GESTURES.items()],
+                "hand": [self._row(g, n) for g, n in actions.GESTURES.items()],
                 "custom": [self._row(g, n) for g, n in self.store.names().items()],
             },
             "actions": [{"id": k, "label": v, "param": k in actions.PARAM_ACTIONS} for k, v in actions.ACTIONS.items()],
@@ -124,7 +115,6 @@ class Backend:
             "enabled": self.cfg["control_enabled"],
             "camera": bool(getattr(self.tracker.camera, "opened", True)),
             "active_hand": {0: "left", 1: "right"}.get(slot),
-            "eyes": (getattr(self.tracker, "winker", None) or _NoEyes).readout(),
             "recording": None if rec is None else {"name": rec.name, "mode": rec.mode, "progress": round(rec.progress, 3), "hint": rec.hint},
             "rec_result": self.rec_result,
             "update": self.updates.snapshot(),

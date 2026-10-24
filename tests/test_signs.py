@@ -2,7 +2,7 @@
 import numpy as np
 
 from signs import (
-    LEFT_EYE, RIGHT_EYE, WinkDetector, assign_slots, classify_hand,
+    assign_slots, classify_hand,
 )
 
 # בסיס כל אצבע (MCP) ומיקום רוחבי
@@ -80,33 +80,3 @@ def test_rock():
 
 def test_ok():
     assert classify_hand(make_hand({"middle", "ring", "pinky"}, "in", pinch=True)) == "ok"
-
-
-def _face(right_open, left_open):
-    face = np.zeros((478, 2), np.float32)
-    for idx, opened in ((RIGHT_EYE, right_open), (LEFT_EYE, left_open)):
-        cx = 0.4 if idx is RIGHT_EYE else 0.6
-        half_h = 0.012 if opened else 0.002
-        p1, p2, p3, p4, p5, p6 = idx
-        face[p1], face[p4] = (cx - 0.03, 0.4), (cx + 0.03, 0.4)
-        face[p2], face[p3] = (cx - 0.01, 0.4 - half_h), (cx + 0.01, 0.4 - half_h)
-        face[p6], face[p5] = (cx - 0.01, 0.4 + half_h), (cx + 0.01, 0.4 + half_h)
-    return face
-
-
-def _run(face, n=4):
-    d = WinkDetector(3)
-    res = None
-    for _ in range(n):
-        res = d.update(face, 640, 480)
-    return res
-
-
-def test_wink():
-    assert _run(_face(right_open=False, left_open=True)) == "wink_right"
-    assert _run(_face(right_open=True, left_open=False)) == "wink_left"
-
-
-def test_blink_and_open_are_not_winks():
-    assert _run(_face(False, False)) is None
-    assert _run(_face(True, True)) is None

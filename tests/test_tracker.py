@@ -32,8 +32,8 @@ class RecordingController:
     def allowed_slots(self):
         return {0, 1}
 
-    def update(self, hands, face, signs, wink, labels=None):
-        self.calls.append((hands, signs, wink, labels))
+    def update(self, hands, face, signs, labels=None):
+        self.calls.append((hands, signs, labels))
 
 
 def test_tracker_publishes_a_complete_output(tmp_path):
@@ -45,7 +45,7 @@ def test_tracker_publishes_a_complete_output(tmp_path):
         time.sleep(0.05)
     t.stop()
     assert out is not None
-    assert out.hands == [] and out.slots == [] and out.signs == [None, None] and out.wink is None and out.point is None
+    assert out.hands == [] and out.slots == [] and out.signs == [None, None] and out.point is None
     assert ctrl.calls and all(c[1] == [None, None] for c in ctrl.calls)
 
 

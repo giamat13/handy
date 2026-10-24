@@ -192,14 +192,12 @@ class MouseController:
         y = self.fy(ny, now) * (self.sh - 1)
         self.mouse.position = (int(x), int(y))
 
-    def update(self, hands, face, signs, wink, labels=None):
+    def update(self, hands, face, signs, labels=None):
         """נקרא מחוט המעקב אחרי כל פריים. signs לפי משבצות (0 שמאל, 1 ימין); labels = משבצת לכל יד ב-hands (אם חסר: לפי הסדר)."""
         now = time.perf_counter()
         allowed = self.allowed_slots()
         # רק מחוות של היד השולטת נחשבות. קריצה לא קשורה ליד
         raw = {s for i, s in enumerate(signs) if s and i in allowed}
-        if wink:
-            raw.add(wink)
 
         p, src = self._point(hands, face, labels)
         self.point = p
@@ -210,8 +208,7 @@ class MouseController:
             self._gestures(raw, now, only_toggle=True)  # מחוות ההפעלה חייבת לעבוד גם כשהשליטה כבויה
             return
 
-        # בזמן קריצה הפנים זזים, אז לא מזיזים את הסמן
-        if p is not None and not wink and now >= self.freeze_until:
+        if p is not None and now >= self.freeze_until:
             self._move(p, src, now)
         elif p is None:
             self.fx.reset(), self.fy.reset()
