@@ -14,6 +14,12 @@ GESTURES = {
     "rock": "רוק",
 }
 
+# מחוות ראש מובנות: תנועה ולא תנוחה (head_motion.py), ולכן אי אפשר להקליט אותן
+HEAD_GESTURES = {
+    "nod": "הנהון (כן)",
+    "shake": "ניעור ראש (לא)",
+}
+
 # פעולות ישנות שהפכו ללחיצה רגילה: לחיצה שמחזיקים (המחווה) היא לחיצה ארוכה, אז אין להן יותר פעולה נפרדת
 LEGACY_ACTIONS = {"drag": "left_click", "hold_right": "right_click", "hold_middle": "middle_click"}
 
@@ -49,6 +55,8 @@ DEFAULT_BINDINGS = {
     "point": "none",
     "three": "scroll_up",
     "rock": "scroll_down",
+    "nod": "none",
+    "shake": "none",
 }
 
 

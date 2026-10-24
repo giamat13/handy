@@ -102,7 +102,7 @@ class Renderer:
             names = self.names()
             self.detect = detect_text(out.signs, names)
             self.detect_hand = detect_text(out.signs[:2], names)    # signs[0], signs[1]: שתי הידיים
-            self.detect_head = detect_text(out.signs[2:], names)    # signs[2]: הראש
+            self.detect_head = detect_text(out.signs[2:], names)    # signs[2], signs[3]: הראש
             self.conf = out.conf
             self.fps = self.tracker.fps
             if time.monotonic() > self._want_until:

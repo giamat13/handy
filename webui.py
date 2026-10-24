@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlparse
 import actions
 import autostart
 import commands
-from custom_gestures import KIND_HAND, KINDS, Recorder, validate_name
+from custom_gestures import KIND_HAND, KIND_HEAD, KINDS, Recorder, validate_name
 from version import FULL_VERSION
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
@@ -84,7 +84,7 @@ class Backend:
 
     # --- קריאה ---
     def names(self):
-        return {**actions.GESTURES, **self.store.names()}
+        return {**actions.GESTURES, **actions.HEAD_GESTURES, **self.store.names()}
 
     def _row(self, gid, name, kind=KIND_HAND):
         b = self.cfg["bindings"].get(gid, "none")
@@ -106,6 +106,7 @@ class Backend:
             "control_enabled": c["control_enabled"],
             "groups": {
                 "hand": [self._row(g, n) for g, n in actions.GESTURES.items()],
+                "head": [self._row(g, n, KIND_HEAD) for g, n in actions.HEAD_GESTURES.items()],
                 "custom": [self._row(g, n, kinds.get(g, KIND_HAND)) for g, n in self.store.names().items()],
             },
             "actions": [{"id": k, "label": v, "param": k in actions.PARAM_ACTIONS} for k, v in actions.ACTIONS.items()],

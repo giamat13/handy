@@ -39,6 +39,7 @@ const mock = {
         ["thumbs_up", "לייק", "none"], ["thumbs_down", "דיסלייק", "none"], ["fist", "אגרוף", { type: "hotkey", keys: "Ctrl+C" }],
         ["open", "כף פתוחה", "none"], ["point", "הצבעה", "none"], ["three", "שלוש אצבעות", "scroll_up"], ["rock", "רוק", "scroll_down"]]
         .map(([id, name, binding]) => ({ id, name, binding })),
+      head: [["nod", "הנהון (כן)", "none"], ["shake", "ניעור ראש (לא)", "none"]].map(([id, name, binding]) => ({ id, name, binding, kind: "head" })),
       custom: [{ id: "custom:demo", name: "אצבע קטנה וקמיצה", kind: "hand", binding: "none" },
         { id: "custom:demo2", name: "ראש מוטה ימינה", kind: "head", binding: "none" }],
     },
@@ -146,6 +147,7 @@ function makeRow(g, extraButtons) {
 function renderRows() {
   const g = config.groups;
   $("#rows-hand").replaceChildren(...g.hand.map((x) => makeRow(x)));
+  $("#rows-head").replaceChildren(...g.head.map((x) => makeRow(x)));
   for (const kind of Object.keys(KINDS)) {   // יד וראש: שתי רשימות נפרדות בשתי לשוניות
     const mine = g.custom.filter((x) => (x.kind || "hand") === kind);
     $(`#rows-custom-${kind}`).replaceChildren(...mine.map((x) => customRow(x, kind)));
@@ -248,7 +250,7 @@ let confRows = [];
 
 function buildConf() {
   const groups = [["מחוות יד", config.groups.hand], ["מחוות יד שלי", config.groups.custom.filter((g) => g.kind !== "head")],
-    ["מחוות ראש", config.groups.custom.filter((g) => g.kind === "head")]];
+    ["מחוות ראש מובנות", config.groups.head], ["מחוות ראש שלי", config.groups.custom.filter((g) => g.kind === "head")]];
   const box = $("#conf-bars");
   box.replaceChildren();
   confRows = [];

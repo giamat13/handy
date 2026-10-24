@@ -104,7 +104,10 @@ def be(tmp_path):
 def test_gestures_are_all_hand_gestures_and_there_are_no_winks(be):
     g = be.config()["groups"]
     hand = {r["id"] for r in g["hand"]}
-    assert "head" not in g and not any(k.startswith("wink") for k in actions.GESTURES)
+    assert not any(k.startswith("wink") for k in actions.GESTURES)
+    assert {r["id"] for r in g["head"]} == set(actions.HEAD_GESTURES) == {"nod", "shake"}      # built-in head motions, apart from the hand signs
+    assert all(r["kind"] == "head" for r in g["head"])
+    assert not set(actions.HEAD_GESTURES) & hand
     assert {"victory", "hang_loose", "thumbs_up", "fist"} <= hand
     assert hand == set(actions.GESTURES)
     assert next(r for r in g["hand"] if r["id"] == "thumbs_up")["text"] == actions.ACTIONS["none"]
