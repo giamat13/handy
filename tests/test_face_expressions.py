@@ -138,7 +138,7 @@ def test_two_signs_in_one_slot_are_both_acted_on_and_shown(monkeypatch):
     assert m.mouse.pressed == ["left"] and m.mouse.scrolls >= 1      # a click and a scroll from the same slot; two clicks are limited by the click cooldown
     try:
         from render import detect_text
-    except AttributeError:   # a mediapipe without the legacy `solutions` API (render needs it); CI has the pinned one
+    except (AttributeError, ImportError):   # no mediapipe at all (the other-platform CI jobs) or one without the legacy `solutions` API
         pytest.skip("mediapipe solutions not available")
     names = {"face_smile": "חיוך", "face_brows_up": "גבות מורמות"}
     assert detect_text([None, None, None, None, None, None, None, (SMILE, BROWS_UP)], names) == "חיוך + גבות מורמות"
