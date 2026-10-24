@@ -96,6 +96,16 @@ def test_every_target_has_a_job_and_a_file_name_the_publish_job_expects():
     assert "Handy2.app" in read("Handy2.spec") and "BUNDLE" in read("Handy2.spec")
 
 
+def test_the_single_file_exe_is_attached_to_every_release():
+    wf = read(".github/workflows/release-onefile.yml")
+    assert "workflows: [release]" in wf and "types: [completed]" in wf        # runs by itself after a successful release
+    assert "workflow_dispatch" in wf and "Handy2-onefile.spec" in wf          # and by hand for a given tag
+    assert "Handy2-${VERSION}-onefile.exe" in wf and "gh release upload" in wf
+    assert "name: release" in read(".github/workflows/release.yml").splitlines()[0]   # the name the trigger waits for
+    import updater
+    assert not updater.ASSET_RE.match(f"Handy2-{version.__version__}-onefile.exe")  # the updater never takes it as the installer
+
+
 def test_archive_names_match_the_workflow():
     import make_platform_archive as mpa
     v = version.__version__

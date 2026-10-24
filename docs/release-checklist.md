@@ -25,6 +25,8 @@ Other targets (each on its own system):
 - Linux: `pyinstaller Handy2.spec && python tools/make_platform_archive.py linux`
 - Nuitka: `pip install nuitka ordered-set zstandard && python tools/build_nuitka.py && python tools/make_platform_archive.py nuitka`
 
+The single-file EXE `Handy2-X.Y.Z-onefile.exe` is attached by the separate `release-onefile` workflow once the release run succeeds (or run it by hand with the tag, if it did not start).
+
 The in-app updater downloads only `Handy2Setup*.exe`, so the other file names must never start with `Handy2Setup` (a test checks this).
 
 ## Not done yet

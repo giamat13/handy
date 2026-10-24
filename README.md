@@ -141,6 +141,7 @@ Versions are `2.X.Y`: X is a feature, Y is a fix. The version lives in `version.
 | --- | --- | --- |
 | Windows installer (used by the automatic update) | `Handy2Setup.exe` | PyInstaller + Inno Setup |
 | Windows portable | `Handy2-X.Y.Z-portable.zip` | PyInstaller |
+| Windows single file | `Handy2-X.Y.Z-onefile.exe` (one EXE, nothing to unzip; slower first start) | PyInstaller, `Handy2-onefile.spec`; attached by the `release-onefile` workflow right after the release |
 | Windows installer, alternative | `Handy2-NSIS-Setup-X.Y.Z.exe` | PyInstaller + NSIS (`installer.nsi`) |
 | macOS | `Handy2-X.Y.Z-macos.zip` (the `.app`) | PyInstaller |
 | Linux | `Handy2-X.Y.Z-linux-x64.tar.gz` | PyInstaller |

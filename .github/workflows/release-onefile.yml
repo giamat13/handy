@@ -1,0 +1,54 @@
+name: release-onefile
+# The single-file EXE (Handy2-X.Y.Z-onefile.exe, built from Handy2-onefile.spec) is attached to the GitHub release that the
+# "release" workflow has just published. It runs by itself when that workflow succeeds on a tag, or by hand for a given tag.
+# The name does not start with "Handy2Setup", so the in-app updater (which downloads only Handy2Setup*.exe) never picks it.
+on:
+  workflow_run:
+    workflows: [release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach the single-file EXE to (for example v2.1.1)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  onefile:
+    # automatic: only after a successful release that was started by a pushed tag (not a pre-release run by hand)
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'v')) }}
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.event.workflow_run.head_branch }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: python -m pip install -r requirements-dev.txt
+      - name: The tag must be this version
+        shell: bash
+        env:
+          TAG: ${{ github.event.inputs.tag || github.event.workflow_run.head_branch }}
+        run: |
+          v=$(python -c "from version import __version__ as v; print(v)")
+          [ "v$v" = "$TAG" ] || { echo "tag $TAG != version v$v"; exit 1; }
+          echo "VERSION=$v" >> "$GITHUB_ENV"
+      - run: python tools/make_version_info.py
+      - run: python -m PyInstaller --noconfirm --distpath dist_onefile --workpath build_onefile Handy2-onefile.spec
+      - name: Attach it to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.event.workflow_run.head_branch }}
+        run: |
+          cp dist_onefile/Handy2.exe "Handy2-${VERSION}-onefile.exe"
+          size=$(stat -c %s "Handy2-${VERSION}-onefile.exe")
+          [ "$size" -gt 50000000 ] || { echo "the EXE is too small ($size bytes): the build is broken"; exit 1; }
+          gh release upload "$TAG" "Handy2-${VERSION}-onefile.exe" --clobber
+          echo "### Single-file EXE attached to ${TAG}: Handy2-${VERSION}-onefile.exe ($size bytes)" >> "$GITHUB_STEP_SUMMARY"
