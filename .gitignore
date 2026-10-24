@@ -13,3 +13,5 @@ dist/
 installer_output/
 dist_onefile/
 build_onefile/
+webview/
+instance.json
