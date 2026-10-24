@@ -25,6 +25,9 @@ HEAD_GESTURES = {
     "eye_wink_left": "קריצה בעין שמאל",
     "eye_wink_right": "קריצה בעין ימין",
     "eye_blink_long": "מצמוץ ארוך",
+    "face_mouth_open": "פה פתוח",
+    "face_smile": "חיוך",
+    "face_brows_up": "גבות מורמות",
 }
 
 # פעולות ישנות שהפכו ללחיצה רגילה: לחיצה שמחזיקים (המחווה) היא לחיצה ארוכה, אז אין להן יותר פעולה נפרדת
@@ -71,6 +74,9 @@ DEFAULT_BINDINGS = {
     "eye_wink_left": "none",
     "eye_wink_right": "none",
     "eye_blink_long": "none",
+    "face_mouth_open": "none",
+    "face_smile": "none",
+    "face_brows_up": "none",
 }
 
 

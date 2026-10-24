@@ -33,7 +33,7 @@ _CENTER = {"hand": (0.5, 0.45), "head": (0.5, 0.5)}
 # משבצות הידיים כפי שה-Tracker מפרסם (signs[0] = שמאל, signs[1] = ימין)
 _SLOTS = {"left": {0}, "right": {1}, "both": {0, 1}}
 SLOT_NAMES = {0: "Left", 1: "Right"}
-HEAD_SLOTS = (2, 3, 4, 5, 6)   # signs[2] = מחווה מותאמת של הראש, [3] = הנהון / ניעור, [4] = הטיית ראש, [5] = ראש קדימה / אחורה, [6] = קריצה / מצמוץ: פועלות בלי קשר לאיזו יד שולטת
+HEAD_SLOTS = (2, 3, 4, 5, 6, 7)   # signs[2] = מחווה מותאמת של הראש, [3] = הנהון / ניעור, [4] = הטיית ראש, [5] = ראש קדימה / אחורה, [6] = קריצה / מצמוץ, [7] = פה / חיוך / גבות: פועלות בלי קשר לאיזו יד שולטת
 
 CLICK_EVENTS = 16   # כמה קליקים אחרונים נשמרים לתצוגה (גלי הקליק על הווידאו)
 
@@ -291,7 +291,9 @@ class MouseController:
         now = time.perf_counter()
         allowed = self.allowed_slots()
         # מחוות של היד השולטת נחשבות; מחוות הראש (HEAD_SLOTS) לא קשורות ליד ולכן תמיד
-        raw = {s for i, s in enumerate(signs) if s and (i in allowed or i in HEAD_SLOTS)}
+        # משבצת יכולה להחזיק כמה מחוות יחד (tuple), למשל חיוך וגבות מורמות בו־זמנית
+        raw = {g for i, s in enumerate(signs) if s and (i in allowed or i in HEAD_SLOTS)
+               for g in (s if isinstance(s, tuple) else (s,))}
 
         p, src = self._point(hands, face, labels)
         self.point = p

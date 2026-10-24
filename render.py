@@ -15,7 +15,8 @@ WATCH_TIMEOUT = 3.0  # בלי בקשת וידאו כל כך הרבה זמן = א
 
 def detect_text(signs, names):
     """מה מזוהה עכשיו, לשורת הסטטוס: מחוות היד והראש (מובנות ומותאמות)."""
-    found = [names[s] for s in signs if s in names]
+    flat = [g for s in signs if s for g in (s if isinstance(s, tuple) else (s,))]   # משבצת יכולה להחזיק כמה מחוות (tuple)
+    found = [names[g] for g in flat if g in names]
     return " + ".join(found) if found else "—"
 
 
