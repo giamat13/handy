@@ -205,3 +205,66 @@ def test_a_tilt_scrolls_while_held_and_holds_a_hotkey(monkeypatch):
     assert ("down", "alt") in log and ("down", "right") in log
     run(m, t, [([None] * 5,)] * 10)
     assert ("up", "right") in [(d, getattr(k, "name", getattr(k, "char", k))) for d, k in m._keyboard.log]   # let go when the head straightens
+
+
+# --- head forward / back (face size against the usual) ------------------------------------
+
+def lean(sizes, tracker=None, start=0.0, yaw=0.0, pitch=0.0):
+    t = tracker or hm.HeadLean()
+    return t, [t.update(SimpleNamespace(size=s, yaw=yaw, pitch=pitch), start + i * DT) for i, s in enumerate(sizes)]
+
+
+def test_leaning_in_and_back_are_recognised():
+    t, seen = lean([100] * 60 + [120] * 30)
+    assert set(seen[:60]) == {None} and seen[-1] == hm.LEAN_FORWARD
+    _, seen = lean([100] * 60 + [80] * 30)
+    assert seen[-1] == hm.LEAN_BACK
+
+
+def test_a_lean_ends_when_the_head_comes_back():
+    t, seen = lean([100] * 60 + [120] * 30)
+    _, seen = lean([100] * 10, t, start=4.0)
+    assert seen[-1] is None
+
+
+def test_sitting_closer_for_good_is_absorbed():
+    t, seen = lean([100] * 30 + [112] * 400)                      # a lasting 12% move is below the threshold anyway
+    assert set(seen) == {None}
+    _, seen = lean([100] * 30 + [104 + i * 0.1 for i in range(300)])      # slow creep
+    assert set(seen) == {None}
+
+
+def test_a_quick_pass_does_not_count():
+    _, seen = lean([100] * 60 + [125] * 8 + [100] * 20)
+    assert set(seen) == {None}
+
+
+def test_a_turned_head_is_not_a_lean():
+    """Turning the head shrinks the face in the frame: that must not read as leaning back."""
+    _, seen = lean([100] * 60 + [75] * 30, yaw=30)
+    assert set(seen) == {None}
+
+
+def test_lean_forgets_the_baseline_when_the_face_is_lost():
+    t, _ = lean([100] * 60)
+    assert t.update(None, 5.0) is None
+    _, seen = lean([130] * 30, t, start=5.1)                      # the new baseline is 130, so this is not a lean
+    assert set(seen) == {None}
+
+
+def test_works_with_the_real_pose_size():
+    import head_pose
+
+    near = head_pose.estimate(make_face(size=130.0), 640, 480)
+    far = head_pose.estimate(make_face(size=95.0), 640, 480)
+    t = hm.HeadLean()
+    for i in range(60):
+        t.update(far, i * DT)
+    seen = [t.update(near, 2.0 + i * DT) for i in range(30)]
+    assert seen[-1] == hm.LEAN_FORWARD
+
+
+def test_lean_binds_to_a_zoom_hotkey(monkeypatch):
+    m, t = make(monkeypatch, lean_forward={"type": "hotkey", "keys": "ctrl+plus"})
+    run(m, t, [([None] * 5 + [hm.LEAN_FORWARD],)] * 5)
+    assert any(d == "down" for d, _ in m._keyboard.log)

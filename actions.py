@@ -20,6 +20,8 @@ HEAD_GESTURES = {
     "shake": "ניעור ראש (לא)",
     "tilt_left": "הטיית ראש שמאלה",
     "tilt_right": "הטיית ראש ימינה",
+    "lean_forward": "ראש קדימה (התקרבות)",
+    "lean_back": "ראש אחורה (התרחקות)",
 }
 
 # פעולות ישנות שהפכו ללחיצה רגילה: לחיצה שמחזיקים (המחווה) היא לחיצה ארוכה, אז אין להן יותר פעולה נפרדת
@@ -61,6 +63,8 @@ DEFAULT_BINDINGS = {
     "shake": "none",
     "tilt_left": "none",
     "tilt_right": "none",
+    "lean_forward": "none",
+    "lean_back": "none",
 }
 
 

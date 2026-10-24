@@ -9,12 +9,12 @@ import numpy as np
 
 import head_pose
 from custom_gestures import KIND_HEAD, CustomMatcher, pick_sign
-from head_motion import HeadMotion, HeadTilt
+from head_motion import HeadLean, HeadMotion, HeadTilt
 from perf import RateMeter, TimeMeter
 from signs import Stabilizer, assign_slots, classify_hand, sign_scores
 
 SLOT_LABELS = ("Left", "Right")  # signs[0] = יד שמאל, signs[1] = יד ימין (כפי שהיא נראית למשתמש: הווידאו הפוך כמו מראה)
-# signs[2] = מחווה מותאמת של הראש, signs[3] = הנהון / ניעור, signs[4] = הטיית ראש (mouse_control.HEAD_SLOTS)
+# signs[2] = מחווה מותאמת של הראש, signs[3] = הנהון / ניעור, signs[4] = הטיית ראש, signs[5] = ראש קדימה / אחורה (mouse_control.HEAD_SLOTS)
 
 # slots: משבצת (0/1) לכל יד ברשימת hands. point: הנקודה השולטת בקואורדינטות הפריים, או None.
 # pose: HeadPose (head_pose.py) או None. conf: {מזהה מחווה: ביטחון 0..1} ליד המשמשת למיקוד ולראש (לתצוגת האבחון)
@@ -30,6 +30,7 @@ class Tracker:
         self.head_matcher = CustomMatcher(store, KIND_HEAD) if store is not None else None
         self.head_motion = HeadMotion()   # הנהון / ניעור ראש מתוך תנועת הזוויות
         self.head_tilt = HeadTilt()       # הטיית ראש לכתף מתוך זווית ה-roll
+        self.head_lean = HeadLean()       # ראש קדימה / אחורה מתוך גודל הפנים
         self.recorder = None  # Recorder פעיל בזמן הקלטת מחווה: אז לא מפעילים פעולות
         self.sign_stabs = [Stabilizer(3), Stabilizer(3)]
         self.hands = mp.solutions.hands.Hands(
@@ -114,7 +115,8 @@ class Tracker:
             signs.append(self.head_matcher.update(face_px, None) if self.head_matcher is not None else None)
             signs.append(self.head_motion.update(pose, time.perf_counter()))
             signs.append(self.head_tilt.update(pose, time.perf_counter()))
-            conf = {**self.head_motion.scores, **self.head_tilt.scores}
+            signs.append(self.head_lean.update(pose, time.perf_counter()))
+            conf = {**self.head_motion.scores, **self.head_tilt.scores, **self.head_lean.scores}
             focus = self._focus_slot(by_slot)
             if focus is not None:
                 conf.update(sign_scores(by_slot[focus]))
@@ -131,9 +133,10 @@ class Tracker:
                     allowed = self.controller.allowed_slots() if self.controller is not None else (0, 1)
                     slot = next((s for s in (1, 0) if s in allowed and s in by_slot), None)
                     rec.add(by_slot[slot] if slot is not None else None, SLOT_LABELS[slot] if slot is not None else None)
-                signs = [None] * 5
+                signs = [None] * 6
                 self.head_motion.reset()
                 self.head_tilt.reset()
+                self.head_lean.reset()
             if self.controller is not None:
                 self.controller.update(hands, face, signs, slots)
             point = self.controller.point if self.controller is not None else None

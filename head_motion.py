@@ -58,6 +58,64 @@ class HeadTilt:
         return self._on
 
 
+LEAN_FORWARD, LEAN_BACK = "lean_forward", "lean_back"
+LEAN_ENTER = 0.15    # שינוי יחסי בגודל הפנים (מול הרגיל) שמתחיל את הספירה: פנים שמתקרבות למצלמה נראות גדולות יותר
+LEAN_EXIT = 0.06     # המחווה נגמרת רק כשהשינוי חוזר מתחת לזה (היסטרזיס)
+LEAN_HOLD = 0.5      # שניות שצריך להחזיק
+LEAN_TURN = 20.0     # מעלות: כשהראש מופנה או מוטה יותר מזה גודל הפנים כבר לא מעיד על מרחק, ולכן לא מזהים
+LEAN_TAU = 6.0       # שניות: קצב ההסתגלות של "הגודל הרגיל", כך שישיבה קרובה או רחוקה יותר מהמצלמה לא נחשבת תנועה
+
+
+class HeadLean:
+    """ראש קדימה או אחורה לפי שינוי בגודל הפנים בפריים (אין עומק אמיתי). תנוחה שמחזיקים, כמו הטיית ראש."""
+
+    def __init__(self):
+        self._base = None            # הגודל הרגיל של הפנים, ממוצע איטי
+        self._last = None            # זמן העדכון האחרון
+        self._since = {LEAN_FORWARD: None, LEAN_BACK: None}
+        self._on = None
+        self.scores = {LEAN_FORWARD: 0.0, LEAN_BACK: 0.0}
+
+    def reset(self):
+        self._base = self._last = None
+        self._since = {LEAN_FORWARD: None, LEAN_BACK: None}
+        self._on = None
+        self.scores = {LEAN_FORWARD: 0.0, LEAN_BACK: 0.0}
+
+    def update(self, pose, now):
+        """פריים אחד. מחזיר LEAN_FORWARD / LEAN_BACK כל עוד התנוחה פעילה, אחרת None."""
+        if pose is None or not pose.size > 0:
+            self.reset()
+            return None
+        if self._base is None:
+            self._base, self._last = float(pose.size), now
+        if abs(pose.yaw) > LEAN_TURN or abs(pose.pitch) > LEAN_TURN:
+            self._since = {LEAN_FORWARD: None, LEAN_BACK: None}
+            self._on = None
+            self.scores = {LEAN_FORWARD: 0.0, LEAN_BACK: 0.0}
+            self._last = now
+            return None
+        change = pose.size / self._base - 1.0
+        if self._on is None:   # בזמן שהתנוחה פעילה הגודל הרגיל קבוע, אחרת ההסתגלות הייתה מבטלת אותה
+            alpha = 1.0 - 2.718281828 ** (-(now - self._last) / LEAN_TAU)
+            self._base += alpha * (pose.size - self._base)
+        self._last = now
+        for name, amount in ((LEAN_FORWARD, change), (LEAN_BACK, -change)):
+            limit = LEAN_EXIT if self._on == name else LEAN_ENTER
+            if amount >= limit:
+                if self._since[name] is None:
+                    self._since[name] = now
+                held = now - self._since[name]
+                self.scores[name] = 0.5 + 0.5 * min(held / LEAN_HOLD, 1.0)
+                if held >= LEAN_HOLD:
+                    self._on = name
+            else:
+                self._since[name] = None
+                self._on = None if self._on == name else self._on
+                self.scores[name] = 0.5 * max(amount, 0.0) / LEAN_ENTER
+        return self._on
+
+
 def swings(values, size):
     """גודל כל תנועה בין שני קצוות מתחלפים ברצף, כשכל תנועה היא לפחות size. התנועה האחרונה נספרת גם אם עוד לא חזרה."""
     if len(values) < 2:
