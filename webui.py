@@ -15,7 +15,8 @@ import commands
 from custom_gestures import Recorder, validate_name
 from version import FULL_VERSION
 
-WEB_DIR = Path(__file__).resolve().parent / "web"MAX_BODY = 64 * 1024
+WEB_DIR = Path(__file__).resolve().parent / "web"
+MAX_BODY = 64 * 1024
 UI_GONE_AFTER = 120.0   # שניות בלי שום פנייה מהדף (דפדפן שקרס). סגירה רגילה מדווחת מיד דרך /api/bye
 BYE_GRACE = 3.0         # אחרי bye מחכים רגע: רענון של הדף שולח bye ומיד אחריו פנייה חדשה
 
