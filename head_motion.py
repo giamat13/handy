@@ -14,6 +14,50 @@ HOLD = 0.5           # שניות: כמה זמן המחווה נשארת מזו�
 QUIET = 1.0          # שניות אחרי זיהוי שלא מחפשים חדש, כדי שסוף אותה תנועה לא ייספר שוב
 
 
+TILT_LEFT, TILT_RIGHT = "tilt_left", "tilt_right"
+TILT_ENTER = 20.0    # מעלות: הטיה גדולה מזה (לכיוון כתף) מתחילה את הספירה. הטיה רגילה בישיבה היא עד כ-8 מעלות
+TILT_EXIT = 12.0     # מעלות: המחווה נגמרת רק כשהזווית יורדת מתחת לזה (היסטרזיס, כדי שרעד סביב הגבול לא יפעיל ויכבה)
+TILT_HOLD = 0.5      # שניות שצריך להחזיק את ההטיה לפני שהיא נחשבת: עוברים דרך הזווית הזו גם בתנועות רגילות
+
+
+class HeadTilt:
+    """הטיית ראש לכתף (roll): תנוחה שמחזיקים, ולא תנועה. נשארת מזוהה כל עוד הראש מוטה, ואפשר לקשור אליה גלילה או קיצור מקשים."""
+
+    def __init__(self):
+        self._since = {TILT_LEFT: None, TILT_RIGHT: None}   # מתי הזווית עברה את הסף
+        self._on = None
+        self.scores = {TILT_LEFT: 0.0, TILT_RIGHT: 0.0}      # 0.5 = הזווית הדרושה, 1 = גם הוחזקה מספיק זמן
+
+    def reset(self):
+        self._since = {TILT_LEFT: None, TILT_RIGHT: None}
+        self._on = None
+        self.scores = {TILT_LEFT: 0.0, TILT_RIGHT: 0.0}
+
+    def update(self, pose, now):
+        """פריים אחד. pose = HeadPose או None. מחזיר TILT_LEFT / TILT_RIGHT כל עוד ההטיה פעילה, אחרת None."""
+        if pose is None:
+            self.reset()
+            return None
+        roll = pose.roll
+        for name, angle in ((TILT_RIGHT, roll), (TILT_LEFT, -roll)):
+            limit = TILT_EXIT if self._on == name else TILT_ENTER
+            if angle >= limit:
+                if self._since[name] is None:
+                    self._since[name] = now
+                held = now - self._since[name]
+                self.scores[name] = 0.5 + 0.5 * min(held / TILT_HOLD, 1.0)
+                if held >= TILT_HOLD:
+                    self._on = name
+            else:
+                self._since[name] = None
+                self._on = None if self._on == name else self._on
+                self.scores[name] = 0.5 * max(angle, 0.0) / TILT_ENTER
+        if self._on is not None:
+            other = TILT_LEFT if self._on == TILT_RIGHT else TILT_RIGHT
+            self._since[other] = None
+        return self._on
+
+
 def swings(values, size):
     """גודל כל תנועה בין שני קצוות מתחלפים ברצף, כשכל תנועה היא לפחות size. התנועה האחרונה נספרת גם אם עוד לא חזרה."""
     if len(values) < 2:

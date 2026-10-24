@@ -18,6 +18,8 @@ GESTURES = {
 HEAD_GESTURES = {
     "nod": "הנהון (כן)",
     "shake": "ניעור ראש (לא)",
+    "tilt_left": "הטיית ראש שמאלה",
+    "tilt_right": "הטיית ראש ימינה",
 }
 
 # פעולות ישנות שהפכו ללחיצה רגילה: לחיצה שמחזיקים (המחווה) היא לחיצה ארוכה, אז אין להן יותר פעולה נפרדת
@@ -57,6 +59,8 @@ DEFAULT_BINDINGS = {
     "rock": "scroll_down",
     "nod": "none",
     "shake": "none",
+    "tilt_left": "none",
+    "tilt_right": "none",
 }
 
 

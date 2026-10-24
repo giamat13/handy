@@ -39,7 +39,7 @@ const mock = {
         ["thumbs_up", "לייק", "none"], ["thumbs_down", "דיסלייק", "none"], ["fist", "אגרוף", { type: "hotkey", keys: "Ctrl+C" }],
         ["open", "כף פתוחה", "none"], ["point", "הצבעה", "none"], ["three", "שלוש אצבעות", "scroll_up"], ["rock", "רוק", "scroll_down"]]
         .map(([id, name, binding]) => ({ id, name, binding })),
-      head: [["nod", "הנהון (כן)", "none"], ["shake", "ניעור ראש (לא)", "none"]].map(([id, name, binding]) => ({ id, name, binding, kind: "head" })),
+      head: [["nod", "הנהון (כן)", "none"], ["shake", "ניעור ראש (לא)", "none"], ["tilt_left", "הטיית ראש שמאלה", "none"], ["tilt_right", "הטיית ראש ימינה", "none"]].map(([id, name, binding]) => ({ id, name, binding, kind: "head" })),
       custom: [{ id: "custom:demo", name: "אצבע קטנה וקמיצה", kind: "hand", binding: "none" },
         { id: "custom:demo2", name: "ראש מוטה ימינה", kind: "head", binding: "none" }],
     },

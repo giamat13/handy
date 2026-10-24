@@ -133,3 +133,75 @@ def test_shake_runs_a_hotkey(monkeypatch):
     m, t = make(monkeypatch, shake={"type": "hotkey", "keys": "ctrl+z"})
     run(m, t, [([None, None, None, SHAKE],)] * 3)
     assert ("down", "z") in [(d, getattr(k, "char", k)) for d, k in m._keyboard.log]
+
+
+# --- tilting the head to a shoulder ------------------------------------------------------
+
+def tilt(roll_by_frame, tracker=None, start=0.0):
+    t = tracker or hm.HeadTilt()
+    return t, [t.update(SimpleNamespace(roll=r), start + i * DT) for i, r in enumerate(roll_by_frame)]
+
+
+def test_a_held_tilt_is_recognised_on_the_right_side():
+    _, seen = tilt([0] * 5 + [28] * 30)
+    assert seen[0] is None and seen[-1] == hm.TILT_RIGHT
+    _, seen = tilt([-28] * 30)
+    assert set(seen) - {None} == {hm.TILT_LEFT}
+
+
+def test_a_passing_tilt_does_not_count():
+    _, seen = tilt([0] * 5 + [28] * 8 + [0] * 5)                  # a quarter of a second
+    assert set(seen) == {None}
+
+
+def test_an_ordinary_lean_does_not_count():
+    _, seen = tilt([10] * 60)
+    assert set(seen) == {None}
+
+
+def test_the_tilt_stays_on_down_to_the_exit_angle_and_then_ends():
+    t, seen = tilt([28] * 20)
+    assert seen[-1] == hm.TILT_RIGHT
+    _, seen = tilt([15] * 5, t, start=1.0)                        # easing off, still above the exit angle
+    assert set(seen) == {hm.TILT_RIGHT}
+    _, seen = tilt([5] * 3, t, start=1.2)
+    assert seen[-1] is None
+
+
+def test_the_tilt_forgets_when_the_face_is_lost():
+    t, seen = tilt([28] * 30)
+    assert t.update(None, 2.0) is None and t.scores[hm.TILT_RIGHT] == 0.0
+    _, seen = tilt([28] * 5, t, start=2.1)                        # has to be held again
+    assert set(seen) == {None}
+
+
+def test_tilt_scores_run_from_zero_to_one():
+    t, _ = tilt([0] * 3)
+    assert t.scores[hm.TILT_RIGHT] == 0.0
+    _, _ = tilt([10], t, start=1.0)
+    assert 0.2 < t.scores[hm.TILT_RIGHT] < 0.5
+    _, _ = tilt([28] * 30, t, start=2.0)
+    assert t.scores[hm.TILT_RIGHT] == 1.0 and t.scores[hm.TILT_LEFT] == 0.0
+
+
+def test_works_with_the_real_roll_estimate():
+    import head_pose
+
+    roll_right = head_pose.estimate(make_face(roll=30), 640, 480)
+    roll_left = head_pose.estimate(make_face(roll=-30), 640, 480)
+    t, seen = tilt([0] * 3)
+    assert [t.update(roll_right, 1.0 + i * DT) for i in range(30)][-1] == hm.TILT_RIGHT
+    assert [hm.HeadTilt().update(roll_left, i * DT) for i in range(1)] == [None]
+    t2 = hm.HeadTilt()
+    assert [t2.update(roll_left, i * DT) for i in range(30)][-1] == hm.TILT_LEFT
+
+
+def test_a_tilt_scrolls_while_held_and_holds_a_hotkey(monkeypatch):
+    m, t = make(monkeypatch, tilt_left="scroll_up", tilt_right={"type": "hotkey", "keys": "alt+right"})
+    run(m, t, [([None, None, None, None, hm.TILT_LEFT],)] * 10)
+    assert m.mouse.scrolls >= 3
+    run(m, t, [([None, None, None, None, hm.TILT_RIGHT],)] * 10)
+    log = [(d, getattr(k, "name", getattr(k, "char", k))) for d, k in m._keyboard.log]
+    assert ("down", "alt") in log and ("down", "right") in log
+    run(m, t, [([None] * 5,)] * 10)
+    assert ("up", "right") in [(d, getattr(k, "name", getattr(k, "char", k))) for d, k in m._keyboard.log]   # let go when the head straightens
