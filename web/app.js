@@ -39,6 +39,8 @@ const mock = {
         ["thumbs_up", "לייק", "none"], ["thumbs_down", "דיסלייק", "none"], ["fist", "אגרוף", { type: "hotkey", keys: "Ctrl+C" }],
         ["open", "כף פתוחה", "none"], ["point", "הצבעה", "none"], ["three", "שלוש אצבעות", "scroll_up"], ["rock", "רוק", "scroll_down"]]
         .map(([id, name, binding]) => ({ id, name, binding })),
+      motion: [["swipe_left", "החלקת יד שמאלה"], ["swipe_right", "החלקת יד ימינה"], ["swipe_up", "החלקת יד למעלה"], ["swipe_down", "החלקת יד למטה"],
+        ["circle_cw", "עיגול עם כיוון השעון"], ["circle_ccw", "עיגול נגד כיוון השעון"], ["wave", "נפנוף"]].map(([id, name]) => ({ id, name, binding: "none" })),
       head: [["nod", "הנהון (כן)", "none"], ["shake", "ניעור ראש (לא)", "none"], ["tilt_left", "הטיית ראש שמאלה", "none"], ["tilt_right", "הטיית ראש ימינה", "none"],
         ["lean_forward", "ראש קדימה (התקרבות)", "none"], ["lean_back", "ראש אחורה (התרחקות)", "none"],
         ["eye_wink_left", "קריצה בעין שמאל", "none"], ["eye_wink_right", "קריצה בעין ימין", "none"], ["eye_blink_long", "מצמוץ ארוך", "none"],
@@ -150,6 +152,7 @@ function makeRow(g, extraButtons) {
 function renderRows() {
   const g = config.groups;
   $("#rows-hand").replaceChildren(...g.hand.map((x) => makeRow(x)));
+  $("#rows-motion").replaceChildren(...g.motion.map((x) => makeRow(x)));
   $("#rows-head").replaceChildren(...g.head.map((x) => makeRow(x)));
   for (const kind of Object.keys(KINDS)) {   // יד וראש: שתי רשימות נפרדות בשתי לשוניות
     const mine = g.custom.filter((x) => (x.kind || "hand") === kind);
@@ -252,7 +255,7 @@ let confKey = null;
 let confRows = [];
 
 function buildConf() {
-  const groups = [["מחוות יד", config.groups.hand], ["מחוות יד שלי", config.groups.custom.filter((g) => g.kind !== "head")],
+  const groups = [["מחוות יד", config.groups.hand], ["תנועות יד", config.groups.motion], ["מחוות יד שלי", config.groups.custom.filter((g) => g.kind !== "head")],
     ["מחוות ראש מובנות", config.groups.head], ["מחוות ראש שלי", config.groups.custom.filter((g) => g.kind === "head")]];
   const box = $("#conf-bars");
   box.replaceChildren();

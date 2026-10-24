@@ -109,6 +109,8 @@ def test_gestures_are_all_hand_gestures_and_there_are_no_winks(be):
                                                                                     "eye_wink_left", "eye_wink_right", "eye_blink_long",
                                                                                     "face_mouth_open", "face_smile", "face_brows_up"}      # built-in head motions, apart from the hand signs
     assert all(r["kind"] == "head" for r in g["head"])
+    assert {r["id"] for r in g["motion"]} == set(actions.HAND_MOTIONS) and len(actions.HAND_MOTIONS) == 7      # hand motions have their own group
+    assert not set(actions.HAND_MOTIONS) & (hand | set(actions.HEAD_GESTURES))
     assert not set(actions.HEAD_GESTURES) & hand
     assert {"victory", "hang_loose", "thumbs_up", "fist"} <= hand
     assert hand == set(actions.GESTURES)

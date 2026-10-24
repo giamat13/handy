@@ -10,6 +10,7 @@ import numpy as np
 import head_pose
 from eye_gestures import EyeGestures
 from face_expressions import ExpressionGestures
+from hand_motion import HandMotions
 from custom_gestures import KIND_HEAD, CustomMatcher, pick_sign
 from head_motion import HeadLean, HeadMotion, HeadTilt
 from perf import RateMeter, TimeMeter
@@ -34,6 +35,7 @@ class Tracker:
         self.head_tilt = HeadTilt()       # הטיית ראש לכתף מתוך זווית ה-roll
         self.head_lean = HeadLean()       # ראש קדימה / אחורה מתוך גודל הפנים
         self.eyes = EyeGestures()         # קריצה ומצמוץ ארוך מתוך פתיחות העיניים
+        self.hand_motion = HandMotions()  # החלקה, עיגול ונפנוף של יד פתוחה
         self.expressions = ExpressionGestures()   # פה פתוח, חיוך וגבות מורמות
         self.recorder = None  # Recorder פעיל בזמן הקלטת מחווה: אז לא מפעילים פעולות
         self.sign_stabs = [Stabilizer(3), Stabilizer(3)]
@@ -122,7 +124,9 @@ class Tracker:
             signs.append(self.head_lean.update(pose, time.perf_counter()))
             signs.append(self.eyes.update(face_px, pose, time.perf_counter()))
             signs.append(self.expressions.update(face_px, pose, time.perf_counter()))
-            conf = {**self.head_motion.scores, **self.head_tilt.scores, **self.head_lean.scores, **self.eyes.scores,
+            allowed = self.controller.allowed_slots() if self.controller is not None else (0, 1)
+            signs.append(self.hand_motion.update(by_slot, allowed, (fw, fh), time.perf_counter()))
+            conf = {**self.hand_motion.scores, **self.head_motion.scores, **self.head_tilt.scores, **self.head_lean.scores, **self.eyes.scores,
                     **self.expressions.scores}
             focus = self._focus_slot(by_slot)
             if focus is not None:
@@ -140,7 +144,8 @@ class Tracker:
                     allowed = self.controller.allowed_slots() if self.controller is not None else (0, 1)
                     slot = next((s for s in (1, 0) if s in allowed and s in by_slot), None)
                     rec.add(by_slot[slot] if slot is not None else None, SLOT_LABELS[slot] if slot is not None else None)
-                signs = [None] * 8
+                signs = [None] * 9
+                self.hand_motion.reset()
                 self.expressions.reset()
                 self.head_motion.reset()
                 self.head_tilt.reset()

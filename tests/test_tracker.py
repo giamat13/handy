@@ -45,9 +45,9 @@ def test_tracker_publishes_a_complete_output(tmp_path):
         time.sleep(0.05)
     t.stop()
     assert out is not None
-    assert out.hands == [] and out.slots == [] and out.signs == [None] * 8 and out.point is None   # left, right, custom head, nod / shake, tilt, lean, eyes, face expressions
-    assert out.pose is None and out.conf == {}
-    assert ctrl.calls and all(c[1] == [None, None, None] for c in ctrl.calls)
+    assert out.hands == [] and out.slots == [] and out.signs == [None] * 9 and out.point is None   # left, right, custom head, nod / shake, tilt, lean, eyes, face expressions, hand motions
+    assert out.pose is None and not any(out.conf.values())   # nothing in the room: the built-in head / hand motions score zero
+    assert ctrl.calls and all(c[1] == [None] * 9 for c in ctrl.calls)
 
 
 def test_a_recorder_silences_the_actions(tmp_path):

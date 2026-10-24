@@ -84,7 +84,7 @@ class Backend:
 
     # --- קריאה ---
     def names(self):
-        return {**actions.GESTURES, **actions.HEAD_GESTURES, **self.store.names()}
+        return {**actions.GESTURES, **actions.HAND_MOTIONS, **actions.HEAD_GESTURES, **self.store.names()}
 
     def _row(self, gid, name, kind=KIND_HAND):
         b = self.cfg["bindings"].get(gid, "none")
@@ -106,6 +106,7 @@ class Backend:
             "control_enabled": c["control_enabled"],
             "groups": {
                 "hand": [self._row(g, n) for g, n in actions.GESTURES.items()],
+                "motion": [self._row(g, n) for g, n in actions.HAND_MOTIONS.items()],
                 "head": [self._row(g, n, KIND_HEAD) for g, n in actions.HEAD_GESTURES.items()],
                 "custom": [self._row(g, n, kinds.get(g, KIND_HAND)) for g, n in self.store.names().items()],
             },

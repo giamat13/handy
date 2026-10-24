@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import settings  # noqa: E402
-from actions import DEFAULT_BINDINGS, GESTURES, HEAD_GESTURES  # noqa: E402
+from actions import DEFAULT_BINDINGS, GESTURES, HAND_MOTIONS, HEAD_GESTURES  # noqa: E402
 
 
 def test_installed_windows_uses_appdata_handy(tmp_path):
@@ -91,7 +91,7 @@ def test_defaults_are_safe(monkeypatch, tmp_path):
     assert cfg["show_trail"] is True and cfg["show_coords"] is True
     assert cfg["bindings"]["hang_loose"] == "right_click" and cfg["bindings"]["victory"] == "left_click"
     assert cfg["bindings"]["thumbs_up"] == "none"
-    assert set(DEFAULT_BINDINGS) == set(GESTURES) | set(HEAD_GESTURES)          # every gesture has a default
+    assert set(DEFAULT_BINDINGS) == set(GESTURES) | set(HEAD_GESTURES) | set(HAND_MOTIONS)          # every gesture has a default
     assert cfg["bindings"]["nod"] == "none" and cfg["bindings"]["shake"] == "none"
 
 

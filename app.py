@@ -66,7 +66,7 @@ class Application:
         self.camera = Camera().start()
         self.mouse = MouseController(self.cfg).start_glide()
         self.tracker = Tracker(self.camera, self.mouse, self.store).start()
-        self.renderer = Renderer(self.tracker, self.mouse, self.cfg, lambda: {**actions.GESTURES, **actions.HEAD_GESTURES, **self.store.names()}).start()
+        self.renderer = Renderer(self.tracker, self.mouse, self.cfg, lambda: {**actions.GESTURES, **actions.HAND_MOTIONS, **actions.HEAD_GESTURES, **self.store.names()}).start()
         self.backend = Backend(self.cfg, self.store, self.tracker, self.mouse, self.renderer, self.updates, settings.save,
                                self.stop_event.set, pick_file=pick_file)
         self.server = Server(self.backend).start()

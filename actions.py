@@ -30,6 +30,17 @@ HEAD_GESTURES = {
     "face_brows_up": "גבות מורמות",
 }
 
+# תנועות יד מובנות (hand_motion.py): החלקה, עיגול ונפנוף של כף יד פתוחה. אירועים, ולכן אי אפשר להקליט אותן
+HAND_MOTIONS = {
+    "swipe_left": "החלקת יד שמאלה",
+    "swipe_right": "החלקת יד ימינה",
+    "swipe_up": "החלקת יד למעלה",
+    "swipe_down": "החלקת יד למטה",
+    "circle_cw": "עיגול עם כיוון השעון",
+    "circle_ccw": "עיגול נגד כיוון השעון",
+    "wave": "נפנוף",
+}
+
 # פעולות ישנות שהפכו ללחיצה רגילה: לחיצה שמחזיקים (המחווה) היא לחיצה ארוכה, אז אין להן יותר פעולה נפרדת
 LEGACY_ACTIONS = {"drag": "left_click", "hold_right": "right_click", "hold_middle": "middle_click"}
 
@@ -77,6 +88,13 @@ DEFAULT_BINDINGS = {
     "face_mouth_open": "none",
     "face_smile": "none",
     "face_brows_up": "none",
+    "swipe_left": "none",
+    "swipe_right": "none",
+    "swipe_up": "none",
+    "swipe_down": "none",
+    "circle_cw": "none",
+    "circle_ccw": "none",
+    "wave": "none",
 }
 
 
