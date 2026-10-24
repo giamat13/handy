@@ -126,12 +126,80 @@ def test_names_are_validated(store):
     assert cg.validate_name("  two   words ") == "two words"
 
 
-def test_a_pose_that_is_already_builtin_is_refused(store):
-    with pytest.raises(ValueError, match="מובנית"):
-        store.add("My fist", record("My fist", make_hand(set(), "in")))   # a fist
-    with pytest.raises(ValueError, match="מובנית"):
-        store.add("V", record("V", make_hand({"index", "middle"}, "in")))
-    assert store.names() == {}
+def test_a_pose_that_is_already_builtin_is_allowed_and_takes_priority(store):
+    fist = make_hand(set(), "in")
+    rec = record("My fist", fist)
+    assert rec.builtin_overlap() == "fist"                                # the UI tells the user about it
+    gid = store.add("My fist", rec)                                       # allowed, no refusal
+    m = cg.CustomMatcher(store)
+    out, claims = [], []
+    for _ in range(cg.DWELL + 3):
+        out.append(m.update(jitter(fist), "Right"))
+        claims.append(m.claims)
+    assert out[-1] == gid                                                 # recognised as mine
+    assert all(claims)                                                    # and the built-in fist is held back from the first frame
+    assert cg.pick_sign(out[0], claims[0], "fist") is None                # still waiting for steadiness: no built-in click
+    assert cg.pick_sign(out[-1], claims[-1], "fist") == gid               # recognised: mine wins over the built-in
+
+
+def test_pick_sign():
+    assert cg.pick_sign("custom:1", True, "fist") == "custom:1"
+    assert cg.pick_sign(None, True, "fist") is None
+    assert cg.pick_sign(None, False, "fist") == "fist"                    # no custom gesture near: the built-in works as before
+    assert cg.pick_sign(None, False, None) is None
+
+
+def test_a_pose_far_from_all_custom_gestures_keeps_its_builtin(store):
+    store.add("My fist", record("My fist", make_hand(set(), "in")))
+    m = cg.CustomMatcher(store)
+    for _ in range(10):
+        m.update(jitter(make_hand({"index"}, "in")), "Right")             # a pointing hand
+    assert m.claims is False                                              # so "point" is not blocked
+
+
+def test_training_more_adds_samples_and_widens_what_is_recognised(store, tmp_path):
+    gid = store.add("Alpha", record("Alpha", POSE_A))
+    variant = POSE_A.copy()
+    variant[1:5] += (-0.08, 0.0)                                          # the thumb held at another angle
+    m = cg.CustomMatcher(store)
+    assert set(run_matcher(m, [jitter(variant)] * 12)) == {None}          # not recognised yet
+    n = store.train(gid, record("Alpha", variant, gid=gid))
+    assert n == 2 * cg.SAMPLES and len(store.gestures[gid]["samples"]) == n
+    m = cg.CustomMatcher(store)
+    assert run_matcher(m, [jitter(variant)] * 12)[-1] == gid              # now it is
+    m = cg.CustomMatcher(store)
+    assert run_matcher(m, [jitter(POSE_A)] * 12)[-1] == gid               # and the original still is
+    again = cg.CustomGestureStore(tmp_path / "custom_gestures.json")      # the samples survive a restart
+    assert len(again.gestures[gid]["samples"]) == n
+    assert again.train(gid, record("Alpha", POSE_A, gid=gid)) == 3 * cg.SAMPLES
+
+
+def test_training_keeps_a_bounded_number_of_samples(store):
+    gid = store.add("Alpha", record("Alpha", POSE_A))
+    for _ in range(12):
+        store.train(gid, record("Alpha", POSE_A, gid=gid))
+    assert len(store.gestures[gid]["samples"]) == cg.MAX_SAMPLES
+
+
+def test_training_errors(store):
+    gid = store.add("Alpha", record("Alpha", POSE_A))
+    with pytest.raises(KeyError):
+        store.train("custom:nope", record("x", POSE_A))
+    with pytest.raises(ValueError):
+        store.train(gid, cg.Recorder("Alpha", gid))                       # an unfinished recording
+    store.add("Beta", record("Beta", POSE_B))
+    with pytest.raises(ValueError, match="דומה"):                         # training Alpha on Beta's pose would make them one
+        for _ in range(4):
+            store.train(gid, record("Alpha", POSE_B, gid=gid))
+
+
+def test_an_old_file_without_samples_still_loads_and_trains(tmp_path):
+    p = tmp_path / "custom_gestures.json"
+    tpl = cg.features(POSE_A).tolist()
+    p.write_text(json.dumps({"version": 1, "gestures": {"custom:old00001": {"name": "Old", "template": tpl, "threshold": 0.12}}}), "utf-8")
+    s = cg.CustomGestureStore(p)
+    assert len(s.gestures["custom:old00001"]["samples"]) == 1
+    assert s.train("custom:old00001", record("Old", POSE_A, gid="custom:old00001")) == cg.SAMPLES + 1
 
 
 def test_a_pose_too_close_to_an_existing_custom_gesture_is_refused(store):

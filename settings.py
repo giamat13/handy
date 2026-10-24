@@ -109,6 +109,7 @@ DEFAULTS = {
     "control_enabled": False,  # העכבר לא זז עד שהמשתמש מדליק (או F8)
     "control_source": "hand",  # "hand" או "head"
     "control_hand": "both",    # "right", "left" או "both": איזו יד שולטת
+    "run_in_background": False,  # סגירת החלון משאירה את התוכנה רצה ברקע (מגש המערכת) עם השליטה בעכבר
     "auto_update_check": True,
     "beta_channel": False,     # מצב בודק: מציעים גם גרסאות בטא
     "update_skipped": "",

@@ -6,7 +6,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-from custom_gestures import CustomMatcher
+from custom_gestures import CustomMatcher, pick_sign
 from signs import Stabilizer, WinkDetector, assign_slots, classify_hand
 
 SLOT_LABELS = ("Left", "Right")  # signs[0] = יד שמאל, signs[1] = יד ימין (כפי שהיא נראית למשתמש: הווידאו הפוך כמו מראה)
@@ -85,9 +85,11 @@ class Tracker:
             for slot, stab in enumerate(self.sign_stabs):
                 pts = by_slot.get(slot)
                 builtin = stab.update(classify_hand(pts) if pts is not None else None)
-                # מחווה מותאמת שזוהתה (אחרי שהתנוחה יציבה) גוברת על מחווה מובנית דומה
-                custom = self.matchers[slot].update(pts, SLOT_LABELS[slot]) if self.matchers else None
-                signs.append(custom or builtin)
+                # מחווה מותאמת גוברת על מובנית דומה: כשזוהתה, וגם כשהיד כבר בתנוחה שלה (הסימן המובנה מושתק בזמן ההמתנה ליציבות)
+                if self.matchers:
+                    custom = self.matchers[slot].update(pts, SLOT_LABELS[slot])
+                    builtin = pick_sign(custom, self.matchers[slot].claims, builtin)
+                signs.append(builtin)
             wink = self.winker.update(face, fw, fh)
             rec = self.recorder
             if rec is not None:

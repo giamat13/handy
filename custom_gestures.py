@@ -23,6 +23,8 @@ RELEASE = 3             # פריימים בלי התאמה עד שהמחווה �
 LOST_MAX = 45           # פריימים בלי יד אחרי שההקלטה מתאפסת
 MIN_THRESHOLD, MAX_THRESHOLD = 0.10, 0.25
 PEAK_FACTOR = 2.5       # המרחק בנקודה בודדת לא יעלה על הסף כפול זה
+CLAIM_FACTOR = 2.0      # בטווח כזה (כפול הסף) מהתנוחה המותאמת, מחווה מובנית דומה מושתקת: המותאמת מקבלת עדיפות
+MAX_SAMPLES = 120       # כמה דגימות נשמרות למחווה (אימון עוד מוסיף, והישנות ביותר נשכחות)
 AMBIGUOUS_GAP = 0.04    # שתי מחוות מותאמות שהמרחק אליהן קרוב יותר מזה: לא מזהים אף אחת
 NAME_MAX = 30
 
@@ -49,6 +51,21 @@ def distance(a, b):
     return float(np.sqrt(np.mean(d * d))), float(d.max())
 
 
+def fit(samples):
+    """(תבנית, סף) מרשימת דגימות: התבנית היא הממוצע, והסף נלמד מהפיזור (יותר מגוון באימון = סבלנות גדולה יותר)."""
+    arr = np.stack([np.asarray(s, np.float32) for s in samples])
+    template = arr.mean(axis=0)
+    spread = max(distance(s, template)[0] for s in arr)
+    return template, float(min(max(spread * 1.8 + 0.04, MIN_THRESHOLD), MAX_THRESHOLD))
+
+
+def pick_sign(custom, claims, builtin):
+    """איזה סימן יד נחשב: מחווה מותאמת שזוהתה גוברת; ואם היד בתנוחה שמותאמת טוענת לה (גם לפני שזוהתה), הסימן המובנה מושתק."""
+    if custom:
+        return custom
+    return None if claims else builtin
+
+
 def validate_name(name):
     name = " ".join(str(name or "").split())
     if not name:
@@ -65,7 +82,8 @@ class Recorder:
 
     def __init__(self, name, gesture_id=None):
         self.name = name
-        self.gesture_id = gesture_id    # מלא כשמקליטים מחדש מחווה קיימת
+        self.gesture_id = gesture_id    # מלא כשמקליטים מחדש או מאמנים עוד מחווה קיימת
+        self.mode = "new"               # new / replace / train: מה לעשות עם ההקלטה (מוגדר ע"י הממשק)
         self.samples = []
         self.raw = []                   # הנקודות המקוריות, לבדיקה מול המחוות המובנות
         self.hint = "waiting"           # waiting / moving / recording / done
@@ -115,10 +133,7 @@ class Recorder:
         """(תבנית, סף) מהדגימות."""
         if not self.done:
             raise ValueError("ההקלטה לא הסתיימה")
-        arr = np.stack(self.samples)
-        template = arr.mean(axis=0)
-        spread = max(distance(s, template)[0] for s in self.samples)
-        return template, float(min(max(spread * 1.8 + 0.04, MIN_THRESHOLD), MAX_THRESHOLD))
+        return fit(self.samples)
 
     def builtin_overlap(self):
         """שם מחווה מובנת אם רוב הדגימות מסווגות כמחווה מובנת אחת, אחרת None."""
@@ -155,8 +170,12 @@ class CustomGestureStore:
                 tpl = np.asarray(g["template"], np.float32)
                 if not is_custom(gid) or tpl.shape != (20, 2) or not np.isfinite(tpl).all():
                     continue
+                samples = np.asarray(g.get("samples", [tpl]), np.float32)   # קבצים מ-2.1 הראשון בלי דגימות: התבנית היא הדגימה
+                if samples.ndim != 3 or samples.shape[1:] != (20, 2) or not np.isfinite(samples).all():
+                    samples = tpl[None]
                 loaded[gid] = {"name": validate_name(g["name"]), "template": tpl.tolist(),
-                               "threshold": float(min(max(g["threshold"], MIN_THRESHOLD), MAX_THRESHOLD))}
+                               "threshold": float(min(max(g["threshold"], MIN_THRESHOLD), MAX_THRESHOLD)),
+                               "samples": samples[-MAX_SAMPLES:].tolist()}
             self.gestures = loaded
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
             self.gestures = {}
@@ -185,40 +204,59 @@ class CustomGestureStore:
             if gid != except_id and g["name"].casefold() == name.casefold():
                 raise ValueError("כבר יש מחווה בשם הזה")
 
-    def _check_recording(self, rec, except_id=None):
-        """דוחה הקלטה שתתבלבל: תנוחה שכבר מוגדרת כמחווה מובנת, או קרובה מדי למחווה מותאמת אחרת."""
-        template, threshold = rec.build()
-        overlap = rec.builtin_overlap()
-        if overlap:
-            from actions import GESTURES
-            raise ValueError(f"התנוחה הזו כבר מוגדרת כמחווה מובנית ({GESTURES.get(overlap, overlap)}). בחר תנוחה אחרת")
+    def _check_distinct(self, template, threshold, except_id=None):
+        """דוחה תנוחה שקרובה מדי למחווה מותאמת אחרת (אי אפשר להבדיל ביניהן). חפיפה עם מחווה מובנית מותרת: המותאמת מקבלת עדיפות."""
         for gid, g in self.gestures.items():
             if gid == except_id:
                 continue
             rms, _ = distance(template, np.asarray(g["template"], np.float32))
             if rms < max(threshold, g["threshold"]) * 1.5:
                 raise ValueError(f"התנוחה דומה מדי למחווה '{g['name']}'. בחר תנוחה שונה")
-        return template, threshold
+
+    def _entry(self, base, samples):
+        samples = [np.asarray(s, np.float32) for s in samples][-MAX_SAMPLES:]
+        template, threshold = fit(samples)
+        return template, threshold, {**base, "template": template.tolist(), "threshold": threshold,
+                                     "samples": [s.tolist() for s in samples]}
+
+    def _commit(self, gid, template, threshold, entry, except_id=None):
+        self._check_distinct(template, threshold, except_id)
+        self.gestures = {**self.gestures, gid: entry}
+        self.version += 1
+        self.save()
 
     def add(self, name, rec):
         with self._lock:
             name = validate_name(name)
             self._unique(name)
-            template, threshold = self._check_recording(rec)
+            if not rec.done:
+                raise ValueError("ההקלטה לא הסתיימה")
+            template, threshold, entry = self._entry({"name": name}, rec.samples)
             gid = PREFIX + uuid.uuid4().hex[:8]
-            self.gestures = {**self.gestures, gid: {"name": name, "template": template.tolist(), "threshold": threshold}}
-            self.version += 1
-            self.save()
+            self._commit(gid, template, threshold, entry)
             return gid
 
     def rerecord(self, gid, rec):
+        """מחליף את ההקלטה של מחווה קיימת בהקלטה חדשה."""
         with self._lock:
             if gid not in self.gestures:
                 raise KeyError(gid)
-            template, threshold = self._check_recording(rec, except_id=gid)
-            self.gestures = {**self.gestures, gid: {**self.gestures[gid], "template": template.tolist(), "threshold": threshold}}
-            self.version += 1
-            self.save()
+            if not rec.done:
+                raise ValueError("ההקלטה לא הסתיימה")
+            template, threshold, entry = self._entry(self.gestures[gid], rec.samples)
+            self._commit(gid, template, threshold, entry, except_id=gid)
+
+    def train(self, gid, rec):
+        """אימון עוד: מוסיף את הדגימות החדשות לקיימות. המחווה מתכווננת לזוויות ולצורות נוספות של אותה תנוחה. מחזיר את מספר הדגימות."""
+        with self._lock:
+            if gid not in self.gestures:
+                raise KeyError(gid)
+            if not rec.done:
+                raise ValueError("ההקלטה לא הסתיימה")
+            old = self.gestures[gid].get("samples") or [self.gestures[gid]["template"]]
+            template, threshold, entry = self._entry(self.gestures[gid], [*old, *rec.samples])
+            self._commit(gid, template, threshold, entry, except_id=gid)
+            return len(entry["samples"])
 
     def rename(self, gid, name):
         with self._lock:
@@ -247,10 +285,14 @@ class CustomMatcher:
 
     def reset(self):
         self.current = None
+        self.claims = False  # True כשהיד בתנוחה שמחווה מותאמת טוענת לה: אז הסימן המובנה הדומה מושתק (ראה pick_sign)
         self._cand = None
         self._streak = 0
         self._miss = 0
         self._prev = None
+
+    def _near(self, f):
+        return any(distance(f, tpl)[0] <= thr * CLAIM_FACTOR for _gid, tpl, thr in self.store.compiled())
 
     def best(self, f):
         """id של המחווה המותאמת הקרובה ביותר אם היא עומדת בסף ובבדיקת הנקודה הבודדת, ואין מתחרה קרוב מדי. אחרת None."""
@@ -267,10 +309,16 @@ class CustomMatcher:
         return scored[0][1]
 
     def update(self, pts, label=None):
+        """המחווה המותאמת הנוכחית (id) או None; self.claims אומר אם היד קרובה לתנוחה מותאמת."""
         f = features(pts, label) if pts is not None else None
         if f is None:
             self.reset()
             return None
+        result = self._step(f)
+        self.claims = result is not None or self._near(f)
+        return result
+
+    def _step(self, f):
         steady = self._prev is not None and distance(f, self._prev)[0] <= MOTION_MAX
         self._prev = f
         match = self.best(f)

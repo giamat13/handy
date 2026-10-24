@@ -1,5 +1,5 @@
 """זיהוי סימני יד (מ-21 נקודות) וקריצות (מנקודות הפנים)."""
-from collections import deque
+from collections import deque  # noqa: F401  (Stabilizer and WinkDetector)
 
 import numpy as np
 
@@ -109,22 +109,46 @@ class Stabilizer:
 
 
 class WinkDetector:
-    """קריצה = עין אחת סגורה והשנייה פתוחה, כמה פריימים ברצף. מצמוץ (שתיהן) לא נחשב."""
+    """קריצה = עין אחת סגורה והשנייה פתוחה, כמה פריימים ברצף. מצמוץ (שתיהן) לא נחשב.
+
+    הספים הקבועים (CLOSED / OPEN) טובים לעין גדולה ומצלמה ישרה, אבל בעיניים קטנות, עם משקפיים או מזווית ה-EAR הרגיל נמוך
+    והעין לעולם לא "פתוחה" מספיק, ואז אף קריצה לא מזוהה. לכן אחרי כמה פריימים הגלאי לומד את ה-EAR הרגיל (האחוזון ה-85 בחלון
+    אחרון) של כל עין בנפרד, ועין נחשבת סגורה כשהיא יורדת מתחת ל-70% ממנו ופתוחה מעל 85%. עד שלמד משתמשים בספים הקבועים."""
 
     CLOSED = 0.17
     OPEN = 0.21
+    CLOSE_RATIO = 0.70
+    OPEN_RATIO = 0.85
+    WARMUP = 20      # פריימים עד שיש בסיס
+    WINDOW = 120     # כמה פריימים אחרונים מרכיבים את הבסיס
+    MIN_BASE = 0.12  # בסיס נמוך מזה = העין לא נמדדת באמינות (פנים רחוקות / מוסתרות), אז לא סומכים עליו
 
     def __init__(self, frames=3):
         self.stab = Stabilizer(frames)
+        self._hist = (deque(maxlen=self.WINDOW), deque(maxlen=self.WINDOW))  # (ימין, שמאל)
+        self.ears = None  # (ימין, שמאל) האחרונים, לאבחון
+
+    def _base(self, hist):
+        return float(np.percentile(hist, 85)) if len(hist) >= self.WARMUP else None
 
     def update(self, face, w, h):
         if face is None:
             return self.stab.update(None)
         r = eye_aspect_ratio(face, RIGHT_EYE, w, h)
         l = eye_aspect_ratio(face, LEFT_EYE, w, h)
+        self.ears = (r, l)
+        self._hist[0].append(r)
+        self._hist[1].append(l)
+        br, bl = self._base(self._hist[0]), self._base(self._hist[1])
+        if br is not None and bl is not None and min(br, bl) >= self.MIN_BASE:
+            r_closed, r_open = r < br * self.CLOSE_RATIO, r > br * self.OPEN_RATIO
+            l_closed, l_open = l < bl * self.CLOSE_RATIO, l > bl * self.OPEN_RATIO
+        else:
+            r_closed, r_open = r < self.CLOSED, r > self.OPEN
+            l_closed, l_open = l < self.CLOSED, l > self.OPEN
         state = None
-        if r < self.CLOSED and l > self.OPEN:
+        if r_closed and l_open:
             state = "wink_right"
-        elif l < self.CLOSED and r > self.OPEN:
+        elif l_closed and r_open:
             state = "wink_left"
         return self.stab.update(state)

@@ -1,3 +1,4 @@
+import queue
 import sys
 import time
 import tkinter as tk
@@ -18,6 +19,7 @@ import overlay
 from camera import Camera
 from mouse_control import MouseController, SLOT_NAMES, screen_size
 from tracker import Tracker
+from tray import Tray
 from update_ui import UpdateManager
 from version import FULL_VERSION
 
@@ -104,7 +106,7 @@ class CustomGesturesWindow(ctk.CTkToplevel):
         super().__init__(master)
         self.app = master
         self.title("מחוות מותאמות")
-        self.geometry("460x560")
+        self.geometry("540x580")
         self.transient(master)
         self.rec = None
         self.protocol("WM_DELETE_WINDOW", self._close)
@@ -140,7 +142,8 @@ class CustomGesturesWindow(ctk.CTkToplevel):
             r.pack(fill="x", pady=2)
             ctk.CTkLabel(r, text=name, anchor="w", width=130).pack(side="left")
             ctk.CTkButton(r, text="מחק", width=52, fg_color="#a33", command=lambda g=gid: self._delete(g)).pack(side="right", padx=2)
-            ctk.CTkButton(r, text="הקלט מחדש", width=84, command=lambda g=gid: self._start(g, names[g])).pack(side="right", padx=2)
+            ctk.CTkButton(r, text="הקלט מחדש", width=84, command=lambda g=gid: self._start(g, names[g], "replace")).pack(side="right", padx=2)
+            ctk.CTkButton(r, text="אימון עוד", width=74, command=lambda g=gid: self._start(g, names[g], "train")).pack(side="right", padx=2)
             ctk.CTkButton(r, text="שם", width=44, command=lambda g=gid: self._rename(g)).pack(side="right", padx=2)
 
     def _changed(self):
@@ -175,15 +178,16 @@ class CustomGesturesWindow(ctk.CTkToplevel):
         except ValueError as e:
             self.msg.configure(text=str(e))
             return
-        self._start(None, name)
+        self._start(None, name, "new")
 
-    def _start(self, gid, name):
+    def _start(self, gid, name, mode):
         if self.rec is not None:
             return
         if not self.app.camera.opened:
             self.msg.configure(text="לא נמצאה מצלמה")
             return
         self.rec = Recorder(name, gid)
+        self.rec.mode = mode  # new / replace (הקלטה מחדש במקום הישנה) / train (דגימות נוספות לקיימות)
         self.app.tracker.recorder = self.rec  # בזמן ההקלטה אף פעולה לא מופעלת
         self.rec_btn.configure(state="disabled")
         self.cancel_btn.pack(side="left")
@@ -200,12 +204,20 @@ class CustomGesturesWindow(ctk.CTkToplevel):
             return
         self._end_recording()
         try:
-            if rec.gesture_id:
+            if rec.mode == "train":
+                total = self.app.store.train(rec.gesture_id, rec)
+                text = f"נוספו דגימות ל-'{rec.name}' (סה״כ {total}). המחווה תזהה אותה טוב יותר."
+            elif rec.mode == "replace":
                 self.app.store.rerecord(rec.gesture_id, rec)
+                text = f"'{rec.name}' הוקלטה מחדש."
             else:
                 self.app.store.add(rec.name, rec)
-            self.msg.configure(text=f"'{rec.name}' נשמרה. אפשר לקשור אותה לפעולה בהגדרות.")
-            self.name.delete(0, "end")
+                text = f"'{rec.name}' נשמרה. אפשר לקשור אותה לפעולה בהגדרות."
+                self.name.delete(0, "end")
+            overlap = rec.builtin_overlap()
+            if overlap:  # מותר, והמותאמת גוברת: אומרים את זה במפורש
+                text += f"\nהתנוחה דומה למחווה המובנית '{GESTURES.get(overlap, overlap)}'. המחווה שלך מקבלת עדיפות והמובנית לא תופעל בתנוחה הזו."
+            self.msg.configure(text=text)
         except ValueError as e:
             self.msg.configure(text=str(e))
         self._changed()
@@ -250,6 +262,7 @@ class SettingsWindow(ctk.CTkToplevel):
             ).pack(anchor="w", padx=12, pady=(10, 0))
 
         for key, text in (
+            ("run_in_background", "המשך לרוץ ברקע (במגש המערכת) כשסוגרים את החלון"),
             ("auto_update_check", "בדוק עדכונים אוטומטית"),
             ("beta_channel", "הצע גם גרסאות בטא"),
         ):
@@ -384,6 +397,18 @@ class App(ctk.CTk):
         self.tracker = Tracker(self.camera, self.mouse, self.store).start()
         self.trail = view_aids.Trail()
 
+        # מגש המערכת: הלחיצות מגיעות מחוט אחר, ולכן עוברות דרך תור שה-tick מרוקן בחוט הממשק
+        self._tray_q = queue.SimpleQueue()
+        self._last_enabled = None
+        try:
+            tray_image = Image.open(ICON_PATH).convert("RGBA")
+        except OSError:
+            tray_image = Image.new("RGBA", (64, 64), (60, 140, 255, 255))
+        self.tray = Tray(
+            tray_image, show=lambda: self._tray_q.put("show"), toggle=lambda: self._tray_q.put("toggle"),
+            quit_=lambda: self._tray_q.put("quit"), is_enabled=lambda: self.cfg["control_enabled"],
+        )
+
         self._hotkeys = None
         self._register_hotkeys()
 
@@ -461,9 +486,50 @@ class App(ctk.CTk):
                 text += f" ({HAND_SLOT_TEXT[slot]} פעילה)"
         return text
 
+    def _in_background(self):
+        return self.state() in ("withdrawn", "iconic")
+
+    def _go_background(self):
+        """סוגרים את החלון והתוכנה ממשיכה: אייקון במגש, ואם אי אפשר (macOS, בלי pystray) החלון רק ממוזער."""
+        if self.tray.start():
+            self.withdraw()
+        else:
+            self.iconify()
+
+    def show_window(self):
+        self.tray.stop()
+        self.deiconify()
+        self.lift()
+        self.focus_force()
+
+    def _tray_commands(self):
+        while True:
+            try:
+                cmd = self._tray_q.get_nowait()
+            except queue.Empty:
+                return
+            if cmd == "show":
+                self.show_window()
+            elif cmd == "toggle":
+                self.toggle_control()
+            elif cmd == "quit":
+                self.quit_app()
+                return True
+
     def tick(self):
         if self.control_var.get() != self.cfg["control_enabled"]:
-            self.control_var.set(self.cfg["control_enabled"])  # שינוי מ-F8 או ממחוות
+            self.control_var.set(self.cfg["control_enabled"])  # שינוי מ-F8, ממחוות או מהמגש
+        if self._last_enabled != self.cfg["control_enabled"]:
+            self._last_enabled = self.cfg["control_enabled"]
+            self.tray.refresh()
+        if self.tray.visible and self.state() == "normal":
+            self.tray.stop()  # החלון חזר (למשל מ-Alt+Tab), האייקון כבר לא נחוץ
+        if self._tray_commands() is not None:
+            return
+        if self._in_background():
+            # ברקע לא מציירים כלום: המעקב והשליטה בעכבר רצים בחוט שלהם
+            self.after(100, self.tick)
+            return
         out = self.tracker.latest(self.last_id)
         if out is not None:
             self.last_id = out.id
@@ -493,6 +559,14 @@ class App(ctk.CTk):
         self.after(4, self.tick)
 
     def close(self):
+        """X של החלון: ברקע אם ההגדרה דולקת, אחרת יציאה."""
+        if self.cfg["run_in_background"]:
+            self._go_background()
+        else:
+            self.quit_app()
+
+    def quit_app(self):
+        self.tray.stop()
         if self._hotkeys is not None:
             self._hotkeys.stop()
         self.mouse.release()

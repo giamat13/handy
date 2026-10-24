@@ -11,3 +11,5 @@ _prerelease.py
 build/
 dist/
 installer_output/
+dist_onefile/
+build_onefile/
