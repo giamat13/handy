@@ -405,8 +405,8 @@ def launch(path: str) -> dict:
     dry = bool(os.environ.get("HANDY_UPDATE_DRY_RUN"))
     if dry and not os.environ.get("HANDY_UPDATE_FAKE_EXE"):
         return {"mode": "dry-run", "path": str(p)}
-    if not dry and (not getattr(sys, "frozen", False) or is_portable()):
-        return {"mode": "page"}                      # source or portable build: no installed location to update in place
+    if not dry and (sys.platform != "win32" or not getattr(sys, "frozen", False) or is_portable()):
+        return {"mode": "page"}                      # source, portable, macOS or Linux build: no installer to run, open the release page
     m = re.search(r"Handy2Setup-(.+)\.exe$", p.name, re.I)
     journal = prepare_rollback(p, m.group(1) if m else "")
     if dry:

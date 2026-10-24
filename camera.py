@@ -1,4 +1,5 @@
 """קריאת מצלמה בחוט נפרד: תמיד שומרים רק את הפריים האחרון, כדי שלא תצטבר השהיה."""
+import sys
 import threading
 import time
 
@@ -7,15 +8,18 @@ import cv2
 
 class Camera:
     def __init__(self, index=0, width=640, height=480):
-        self.cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
-        self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+        # DirectShow רק ב-Windows; ב-macOS וב-Linux המנוע שנבחר אוטומטית (AVFoundation / V4L2)
+        self.cap = cv2.VideoCapture(index, cv2.CAP_DSHOW) if sys.platform == "win32" else cv2.VideoCapture(index)
+        if sys.platform == "win32":
+            self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         self.cap.set(cv2.CAP_PROP_FPS, 30)
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        # חשיפה אוטומטית מורידה את המצלמה ל-12 FPS בתאורה חלשה; חשיפה ידנית נותנת ~28
-        self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
-        self.cap.set(cv2.CAP_PROP_EXPOSURE, -5)
+        if sys.platform == "win32":
+            # חשיפה אוטומטית מורידה את המצלמה ל-12 FPS בתאורה חלשה; חשיפה ידנית נותנת ~28
+            self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+            self.cap.set(cv2.CAP_PROP_EXPOSURE, -5)
         self.opened = self.cap.isOpened()
         self._frame = None
         self._id = 0

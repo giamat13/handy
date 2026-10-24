@@ -32,10 +32,18 @@ def _finger(a, b):
     return _FINGER_OF.get(max(a, b), "palm") if (a in _FINGER_OF or b in _FINGER_OF) else "palm"
 
 
-def draw_hand(img, pts):
+ACTIVE_COLOR = (90, 255, 120)
+
+
+def draw_hand(img, pts, active=False):
+    """active: היד ששולטת בסמן עכשיו, מסומנת בטבעת ירוקה סביב מרכז כף היד."""
     h, w = img.shape[:2]
     p = (pts * (w, h)).astype(np.int32)
     t = max(2, round(w / 320))
+    if active:
+        cx, cy = (int(v) for v in p[[0, 5, 9, 13, 17]].mean(axis=0))
+        cv2.circle(img, (cx, cy), t * 9, (0, 0, 0), t + 3, cv2.LINE_AA)
+        cv2.circle(img, (cx, cy), t * 9, ACTIVE_COLOR, t + 1, cv2.LINE_AA)
     for a, b in HAND_CONNECTIONS:
         col = _FINGER_COLORS[_finger(a, b)]
         cv2.line(img, tuple(p[a]), tuple(p[b]), col, t, cv2.LINE_AA)

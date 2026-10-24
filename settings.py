@@ -159,6 +159,7 @@ def load():
         data["bindings"].update(saved_bindings)
     except (OSError, ValueError):
         pass
+    data["control_enabled"] = False  # גם אם F8 או מחווה הדליקו אותה לפני שההגדרות נשמרו: העכבר לא זז עד שמדליקים במכוון
     if data["control_hand"] not in ("right", "left", "both"):
         data["control_hand"] = "both"
     return data
