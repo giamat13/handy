@@ -15,6 +15,8 @@ _CLICKS = {
     "double_click": ("left", 2),
     "middle_click": ("middle", 1),
 }
+# לחיצה ארוכה: הכפתור נלחץ כשהמחווה מתחילה ומשתחרר כשהיא נגמרת ("drag" היא אותה לחיצה ארוכה שמאלית)
+_HOLDS = {"drag": "left", "hold_right": "right", "hold_middle": "middle"}
 _SCROLL = {"scroll_up": 1, "scroll_down": -1}
 _SCROLL_INTERVAL = 0.08
 _COOLDOWN = 0.7  # בין כל שני קליקים, מכל מחווה: מונע קליק כפול ממחווה שמהבהבת
@@ -126,7 +128,8 @@ class MouseController:
         self.last_toggle = -1e9
         self.last_scroll = 0.0
         self.freeze_until = 0.0
-        self.dragging = None
+        self.held = {}             # מחווה -> כפתור עכבר שהיא מחזיקה לחוץ
+        self.held_keys = {}        # מחווה -> מקשים שהיא מחזיקה לחוצים (קיצור בלחיצה ארוכה)
         self.head_center = None
         self._last_point = None
         self.point = None          # הנקודה השולטת בקואורדינטות הפריים (לשובל), או None
@@ -230,8 +233,7 @@ class MouseController:
             self._fire(bindings.get(g, "none"), g, now, only_toggle)
         if not only_toggle:
             for g in self.prev - active:
-                if actions.binding_kind(bindings.get(g)) == "drag":
-                    self.release()
+                self._release_gesture(g)  # המחווה נגמרה: מה שהיא החזיקה לחוץ משתחרר
             for g in raw:
                 action = actions.binding_kind(bindings.get(g, "none"))
                 if action in _SCROLL and now - self.last_scroll >= _SCROLL_INTERVAL and self.cfg["control_enabled"]:
@@ -259,26 +261,46 @@ class MouseController:
             self.freeze_until = now + _FREEZE
             button, count = _CLICKS[action]
             self.mouse.click(button, count)
-        elif action == "drag" and self.dragging is None:
-            self.dragging = "left"
-            self.mouse.press("left")
+        elif action in _HOLDS:
+            button = _HOLDS[action]
+            if gesture not in self.held and button not in self.held.values():
+                self.held[gesture] = button
+                self.mouse.press(button)
         elif action in ("hotkey", "script"):
             if now - self.last_command < _COMMAND_COOLDOWN:
                 return
             self.last_command = now
-            self._run_command(binding)
+            self._run_command(binding, gesture)
 
-    def _run_command(self, binding):
+    @property
+    def dragging(self):
+        """כפתור העכבר שמוחזק לחוץ עכשיו (או None)."""
+        return next(iter(self.held.values()), None)
+
+    def _run_command(self, binding, gesture=None):
         """קיצור מקשים או תוכנה. מאמתים שוב בכל הרצה, וכשל לא מפיל את חוט המעקב."""
         try:
             if binding["type"] == "hotkey":
-                commands.press_hotkey(self._keyboard_controller(), commands.parse_hotkey(binding.get("keys")))
+                tokens = commands.parse_hotkey(binding.get("keys"))
+                if binding.get("hold") is True and gesture is not None:
+                    if gesture not in self.held_keys:  # לחיצה ארוכה: נשארים לחוצים עד שהמחווה נגמרת
+                        self.held_keys[gesture] = commands.hold_hotkey(self._keyboard_controller(), tokens)
+                else:
+                    commands.press_hotkey(self._keyboard_controller(), tokens)
             else:
                 self._launcher(binding)
         except Exception as e:  # קובץ שנמחק, מקש לא תקין, אין הרשאה: מדלגים ולא קורסים
             log.warning("gesture command skipped: %s", e)
 
+    def _release_gesture(self, gesture):
+        button = self.held.pop(gesture, None)
+        if button is not None:
+            self.mouse.release(button)
+        keys = self.held_keys.pop(gesture, None)
+        if keys:
+            commands.release_keys(self._keyboard_controller(), keys)
+
     def release(self):
-        if self.dragging is not None:
-            self.mouse.release(self.dragging)
-            self.dragging = None
+        """משחרר כל מה שמוחזק לחוץ (כשהשליטה נכבית, בסגירה, ובכל מקרה שבו מחווה נעלמה)."""
+        for g in list(self.held) + [g for g in self.held_keys if g not in self.held]:
+            self._release_gesture(g)

@@ -18,8 +18,9 @@ OUT = ROOT / "dist_nuitka"
 def command(python=sys.executable):
     cmd = [python, "-m", "nuitka", "--standalone", "--assume-yes-for-downloads", "--enable-plugin=tk-inter",
            "--include-package=mediapipe", "--include-package-data=mediapipe",
-           "--include-package=customtkinter", "--include-package-data=customtkinter",
-           f"--include-data-files={ROOT / 'icon.png'}=icon.png",
+           "--include-package=pystray",
+           f"--include-data-dir={ROOT / 'web'}=web",   # the interface (HTML / CSS / JS), served to the app window
+           f"--include-data-files={ROOT / 'icon.png'}=icon.png", f"--include-data-files={ROOT / 'icon.ico'}=icon.ico",
            f"--output-dir={OUT}", "--output-filename=Handy2", "--remove-output"]
     if sys.platform == "win32":
         cmd += ["--windows-console-mode=disable", f"--windows-icon-from-ico={ROOT / 'icon.ico'}",

@@ -13,6 +13,9 @@ The main window shows the live camera with the MediaPipe hand mesh and face land
 - Hand signs: pinch, OK, victory (V), hang loose, thumbs up / down, fist, open palm, point, three fingers, rock
 - **Custom gestures**: record your own static hand poses, name them, rename, re-record or delete them
 - Every gesture can be mapped to an action: left / right / middle / double click, drag, scroll up / down, turn the control on / off, **press a key combination** (`Ctrl+C`, `Alt+Tab`, `Win+D`) or **run a program or script** with arguments
+- **Long press**: a gesture can hold the left / right / middle mouse button or a key combination for as long as you make it
+- **Run in the background**: closing the window can leave the program running (system tray) with the mouse control
+- Hand gestures and head gestures (winks) each have their own tab; the interface is a web page (`web/`), see below
 - Optional **trail** after the controlling point and **cursor coordinates** on the video
 - Mouse control is off by default (and always off when the program starts)
 
@@ -47,11 +50,20 @@ In Settings choose **קיצור מקשים…** or **הרצת תוכנה / סק�
 - Keys: modifiers `Ctrl`, `Alt`, `Shift`, `Win` (Command on macOS, Super on Linux) plus exactly one key, for example `Ctrl+Shift+T`, `Alt+Tab`, `F5`.
 - Programs: a full path and optional arguments. The program is started directly, **never through a shell**, so characters such as `&` or `|` in the arguments are plain text. Paths are checked when you save and again before running. For `.bat` / `.cmd` files, shell characters in the arguments are refused. Two runs of the same kind are at least a second apart.
 
+## The interface
+
+The window is a web page written in HTML, CSS and JavaScript (`web/index.html`, `web/style.css`, `web/app.js`). The program serves it to this PC only (`127.0.0.1`, a random port and a random key in the address) together with the live video and a small API, and opens it in an *app window* (no address bar) of Microsoft Edge or Google Chrome, with its own profile. If neither is installed it opens your default browser. The program's icon is the page's icon, so it is also the icon of the taskbar button.
+
+To work on the design, open `web/index.html` straight from the folder (for example with Live Server): without the program behind it the page shows sample data.
+
+Closing the window ends the program, unless **Run in the background** is on (Settings): then it keeps running with an icon in the system tray (open the window, switch the control, quit). Starting the program again while it runs just opens its window. On macOS there is no tray icon: the window is only minimized.
+
 ## Requirements
 
 - Windows 10 / 11, macOS or Linux (X11)
 - Python 3.12
 - A webcam
+- Microsoft Edge or Google Chrome (Edge is part of Windows 10 / 11)
 
 System notes:
 
@@ -95,7 +107,13 @@ Version 2.0.x kept them in `%APPDATA%\Handy2`. The first start of the new versio
 | File | Purpose |
 | --- | --- |
 | `run.py` | Entry point |
-| `app.py` | Main window, settings window, custom gestures window |
+| `app.py` | The program: starts the camera, tracking, server, tray and the app window |
+| `webui.py` | The local server and the API behind the page, with its security checks |
+| `web/` | The interface: `index.html`, `style.css`, `app.js`, icons |
+| `render.py` | Draws the live video (mesh, trail, coordinates) and encodes it for the page |
+| `window.py` | Opens the page in an Edge / Chrome app window |
+| `tray.py` | The system tray icon (run in the background) |
+| `update_service.py` | Automatic update (check, download, install) without windows |
 | `camera.py` | Threaded camera capture, always the latest frame |
 | `tracker.py` | MediaPipe hands and face, publishes frame and landmarks together |
 | `signs.py` | Hand sign classifier and wink detector |

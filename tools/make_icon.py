@@ -2,6 +2,7 @@
 
     python tools/make_icon.py
 """
+import shutil
 from pathlib import Path
 
 from PIL import Image
@@ -17,6 +18,8 @@ if __name__ == "__main__":
     out = ROOT / "icon.ico"
     square.save(out, format="ICO", sizes=SIZES)
     print(f"{out}  {out.stat().st_size / 1024:.0f} KB")
+    for name in ("icon.png", "icon.ico"):  # web/ is self-contained (it also opens straight from the folder): it keeps its own copy of the icons
+        shutil.copyfile(ROOT / name, ROOT / "web" / name)
     icns = ROOT / "icon.icns"
     square.resize((1024, 1024), Image.LANCZOS).save(icns, format="ICNS")
     print(f"{icns}  {icns.stat().st_size / 1024:.0f} KB")

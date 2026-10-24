@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="handy-token" content="__TOKEN__">
+<title>Handy 2</title>
+<link rel="icon" type="image/x-icon" href="icon.ico">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <img class="logo" src="icon.png" alt="" width="36" height="36">
+  <h1>Handy 2</h1>
+  <div class="head-chips"><span class="chip" id="status">— FPS</span><span class="chip" id="version-chip"></span></div>
+  <label class="switch" title="F8">
+    <input type="checkbox" id="control">
+    <span class="track"></span>
+    <span>שליטה בעכבר</span> <kbd>F8</kbd>
+  </label>
+</header>
+
+<div id="banner" class="banner" hidden>
+  <span id="banner-text"></span>
+  <span class="banner-actions"></span>
+</div>
+
+<main>
+  <section class="video-col">
+    <div class="video">
+      <img id="video" alt="תצוגת מצלמה עם רשת יד ופנים" draggable="false">
+      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <div class="hand-chip" id="hand-chip" hidden><i></i><span id="hand-line"></span></div>
+      <div id="no-camera" class="overlay-msg" hidden>לא נמצאה מצלמה</div>
+    </div>
+    <div class="detect-card">
+      <div class="grow"><div class="label">מזוהה עכשיו</div><div id="detect" class="detect">—</div></div>
+      <div class="action"><div class="label">פעולה</div><b id="detect-action">—</b></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <nav class="tabs" role="tablist" aria-label="לשוניות">
+      <button role="tab" data-tab="hand" class="active">מחוות יד</button>
+      <button role="tab" data-tab="head">מחוות ראש</button>
+      <button role="tab" data-tab="settings">הגדרות</button>
+      <button role="tab" data-tab="updates">עדכונים</button>
+    </nav>
+
+    <div class="tab active" id="tab-hand">
+      <h2>מיפוי מחוות לפעולות</h2>
+      <p class="muted small">לכל מחווה בוחרים פעולה: קליק, גרירה או לחיצה ארוכה, גלילה, הפעלה/כיבוי של השליטה, קיצור מקשים או הרצת תוכנה.</p>
+      <div id="rows-hand" class="rows"></div>
+
+      <h2>המחוות שלי</h2>
+      <div class="card">
+        <p class="muted small">תן שם, לחץ על הקלט והחזק את התנוחה מול המצלמה ללא תנועה, עד שהפס מתמלא. תנוחה שדומה למחווה מובנית מקבלת עדיפות.</p>
+        <div class="line">
+          <input id="rec-name" type="text" maxlength="30" placeholder="שם המחווה" aria-label="שם המחווה">
+          <button id="rec-start" class="primary">הקלט</button>
+          <button id="rec-cancel" hidden>בטל</button>
+        </div>
+        <progress id="rec-bar" max="1" value="0" hidden></progress>
+        <div id="rec-msg" class="msg" role="status"></div>
+      </div>
+      <div id="rows-custom" class="rows custom-list"></div>
+    </div>
+
+    <div class="tab" id="tab-head">
+      <h2>מיפוי מחוות ראש</h2>
+      <p class="muted small">קריצה: עין אחת נסגרת והשנייה פתוחה. מצמוץ רגיל לא נחשב. הזיהוי לומד את פתיחת העיניים שלך בכמה השניות הראשונות.</p>
+      <div id="rows-head" class="rows"></div>
+    </div>
+
+    <div class="tab" id="tab-settings">
+      <h2>שליטה</h2>
+      <div class="field"><span>מזיזים את הסמן עם</span><div class="seg" data-key="control_source" data-options='[["hand","יד"],["head","ראש"]]'></div></div>
+      <div class="field"><span>איזו יד שולטת</span><div class="seg" data-key="control_hand" data-options='[["right","ימין"],["left","שמאל"],["both","שתיהן"]]'></div></div>
+      <div class="field"><span>רגישות <b id="v-sensitivity"></b></span><input type="range" data-key="sensitivity" step="0.05" aria-label="רגישות"></div>
+      <div class="field"><span>החלקה <b id="v-smoothing"></b></span><input type="range" data-key="smoothing" step="0.05" aria-label="החלקה"></div>
+      <h2>תצוגה</h2>
+      <label class="switch"><input type="checkbox" data-key="show_hand_mesh"><span class="track"></span><span>הצג רשת יד</span></label>
+      <label class="switch"><input type="checkbox" data-key="show_face_mesh"><span class="track"></span><span>הצג נקודות פנים</span></label>
+      <label class="switch"><input type="checkbox" data-key="show_trail"><span class="track"></span><span>שובל אחרי הנקודה השולטת</span></label>
+      <label class="switch"><input type="checkbox" data-key="show_coords"><span class="track"></span><span>קואורדינטות של הסמן</span></label>
+      <h2>הרצה</h2>
+      <label class="switch"><input type="checkbox" data-key="run_in_background"><span class="track"></span><span>המשך לרוץ ברקע (במגש המערכת) כשסוגרים את החלון</span></label>
+      <p class="muted small">ברקע המצלמה והשליטה בעכבר ממשיכות לעבוד. מהאייקון במגש אפשר לפתוח את החלון, להחליף את מצב השליטה או לצאת.</p>
+      <button id="quit" class="danger">יציאה מהתוכנה</button>
+    </div>
+
+    <div class="tab" id="tab-updates">
+      <h2>עדכונים</h2>
+      <p>הגרסה שלך: <b id="version"></b></p>
+      <label class="switch"><input type="checkbox" data-key="auto_update_check"><span class="track"></span><span>בדוק עדכונים אוטומטית</span></label>
+      <label class="switch"><input type="checkbox" data-key="beta_channel"><span class="track"></span><span>הצע גם גרסאות בטא</span></label>
+      <div class="line"><button id="check-update" class="primary">בדוק עדכונים עכשיו</button></div>
+      <div id="update-box" class="card solid" hidden>
+        <h3 id="update-title"></h3>
+        <pre id="update-notes"></pre>
+        <progress id="update-bar" max="1" value="0" hidden></progress>
+        <div class="line" id="update-actions"></div>
+      </div>
+      <div id="update-msg" class="msg" role="status"></div>
+    </div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

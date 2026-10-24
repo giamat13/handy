@@ -8,11 +8,12 @@ from PyInstaller.utils.hooks import collect_all
 sys.path.insert(0, SPECPATH)  # SPECPATH is provided by PyInstaller: the folder of this file, where version.py is
 from version import __version__  # noqa: E402
 
-datas = [("icon.png", ".")]
+# the interface is the web/ folder (served to the app window); the icons are the window's taskbar icon and the tray icon
+datas = [("web", "web"), ("icon.png", "."), ("icon.ico", ".")]
 binaries = []
-hiddenimports = []
-# without these the EXE would be broken (the mediapipe models and customtkinter themes are data files)
-for pkg in ("mediapipe", "customtkinter"):
+hiddenimports = ["pystray"]
+# without this the EXE would be broken (the mediapipe models are data files)
+for pkg in ("mediapipe", "pystray"):
     try:
         d, b, h = collect_all(pkg)
     except Exception as e:

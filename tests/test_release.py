@@ -112,6 +112,17 @@ def test_the_updater_never_picks_another_installer():
     assert not updater.ASSET_RE.match(f"Handy2-{version.__version__}-macos.zip")
 
 
+def test_every_build_ships_the_web_ui_and_the_icons():
+    spec, one = read("Handy2.spec"), read("Handy2-onefile.spec")
+    for text in (spec, one):
+        assert '("web", "web")' in text and '("icon.ico", ".")' in text and '("icon.png", ".")' in text
+        assert "pystray" in text and "customtkinter" not in text.replace("# ", "")
+    assert 'icon="icon.ico"' in spec and 'icon="icon.ico"' in one                  # the EXE's own icon
+    assert "--include-data-dir" in read("tools/build_nuitka.py") and "web" in read("tools/build_nuitka.py")
+    req = read("requirements.txt")
+    assert "pystray" in req and "customtkinter" not in req
+
+
 def test_the_installers_keep_the_settings_folder_alone():
     iss, nsi = read("installer.iss"), read("installer.nsi")
     assert "%APPDATA%\\Handy " in iss and "APPDATA" not in nsi.split("Section", 1)[1]   # nothing in the sections touches APPDATA
@@ -119,7 +130,8 @@ def test_the_installers_keep_the_settings_folder_alone():
 
 def test_every_file_the_build_needs_exists():
     for rel in ("Handy2.spec", "installer.iss", "installer.nsi", "build.bat", "LICENSE", "THIRD_PARTY_NOTICES.md", "icon.png",
-                "requirements.txt", "requirements-dev.txt", "run.py", "updater.py", "update_ui.py", "tools/make_icon.py",
+                "requirements.txt", "requirements-dev.txt", "run.py", "app.py", "webui.py", "render.py", "window.py", "tray.py",
+                "update_service.py", "updater.py", "web/index.html", "web/style.css", "web/app.js", "icon.ico", "tools/make_icon.py",
                 "tools/make_version_info.py", "tools/make_portable.py", "tools/write_prerelease.py",
                 "tools/build_nuitka.py", "tools/make_platform_archive.py"):
         assert (ROOT / rel).is_file(), rel

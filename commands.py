@@ -76,7 +76,7 @@ def _pynput_key(token):
 
 
 def press_hotkey(keyboard, tokens):
-    """לוחץ את המקשי העזר, מקיש את המקש הראשי ומשחרר הכול (גם אם משהו נכשל באמצע). keyboard: pynput Controller או דומה."""
+    """לוחץ את מקשי העזר, מקיש את המקש הראשי ומשחרר הכול (גם אם משהו נכשל באמצע). keyboard: pynput Controller או דומה."""
     keys = [_pynput_key(t) for t in tokens]
     held = []
     try:
@@ -88,6 +88,30 @@ def press_hotkey(keyboard, tokens):
     finally:
         for k in reversed(held):
             keyboard.release(k)
+
+
+def hold_hotkey(keyboard, tokens):
+    """לחיצה ארוכה: לוחץ את כל המקשים ומשאיר אותם לחוצים. מחזיר את רשימת המקשים שנלחצו, לשחרור ב-release_keys.
+    אם משהו נכשל באמצע, מה שכבר נלחץ משתחרר, כדי שמקש לא יישאר תקוע."""
+    pressed = []
+    try:
+        for t in tokens:
+            k = _pynput_key(t)
+            keyboard.press(k)
+            pressed.append(k)
+    except Exception:
+        release_keys(keyboard, pressed)
+        raise
+    return pressed
+
+
+def release_keys(keyboard, pressed):
+    """משחרר מקשים שנלחצו ב-hold_hotkey, בסדר הפוך. שחרור שנכשל לא עוצר את שחרור השאר."""
+    for k in reversed(pressed):
+        try:
+            keyboard.release(k)
+        except Exception:
+            pass
 
 
 # --- תוכנה / סקריפט ---------------------------------------------------------

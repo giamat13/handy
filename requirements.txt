@@ -1,9 +1,9 @@
 mediapipe==0.10.21
 opencv-python
 numpy<2
-customtkinter
 pillow
 pynput
+pystray
 mouse; sys_platform == "win32"
 keyboard; sys_platform == "win32"
 pywin32; sys_platform == "win32"

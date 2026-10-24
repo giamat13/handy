@@ -1,4 +1,4 @@
-from app import App
+from app import run
 
 if __name__ == "__main__":
-    App().mainloop()
+    run()

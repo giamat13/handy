@@ -6,10 +6,10 @@ import sys
 
 from PyInstaller.utils.hooks import collect_all
 
-datas = [("icon.png", ".")]
+datas = [("web", "web"), ("icon.png", "."), ("icon.ico", ".")]
 binaries = []
-hiddenimports = ["keyboard"]
-for pkg in ("mediapipe", "customtkinter"):
+hiddenimports = ["keyboard", "pystray"]
+for pkg in ("mediapipe", "pystray"):
     d, b, h = collect_all(pkg)
     datas += d; binaries += b; hiddenimports += h
 
