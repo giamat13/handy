@@ -63,7 +63,7 @@ class Application:
         if not self.ok:
             return
         self.camera = Camera().start()
-        self.mouse = MouseController(self.cfg)
+        self.mouse = MouseController(self.cfg).start_glide()
         self.tracker = Tracker(self.camera, self.mouse, self.store).start()
         self.renderer = Renderer(self.tracker, self.mouse, self.cfg, lambda: {**actions.GESTURES, **self.store.names()}).start()
         self.backend = Backend(self.cfg, self.store, self.tracker, self.mouse, self.renderer, self.updates, settings.save,
@@ -151,7 +151,7 @@ class Application:
         self.shutdown()
 
     def shutdown(self):
-        for step in (self.tray.stop, self.mouse.release, self.renderer.stop, self.tracker.stop, self.camera.stop, self.server.stop):
+        for step in (self.tray.stop, self.mouse.stop_glide, self.mouse.release, self.renderer.stop, self.tracker.stop, self.camera.stop, self.server.stop):
             try:
                 step()
             except Exception:

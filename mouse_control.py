@@ -2,6 +2,7 @@
 import logging
 import math
 import sys
+import threading
 import time
 
 import actions
@@ -19,7 +20,9 @@ _COOLDOWN = 0.7  # בין כל שני קליקים, מכל מחווה: מונע 
 _COMMAND_COOLDOWN = 1.0  # בין שתי הרצות של קיצור מקשים / תוכנה: מחווה מהבהבת לא תפתח עשר חלונות
 _TOGGLE_COOLDOWN = 1.0  # בין שתי החלפות של מצב השליטה
 _RELEASE_HOLD = 0.3  # מחווה נחשבת כנגמרה רק אחרי כל כך הרבה זמן בלעדיה, כדי שהבהוב לא יספור כמחווה חדשה
-_FREEZE = 0.3  # אחרי קליק לא מזיזים את הסמן, כי הראש/היד זזים קצת בזמן המחווה
+_GLIDE_INTERVAL = 0.008   # קצב הזזת הסמן (כ-125 בשנייה)
+_GLIDE_TAU = 0.04         # קבוע הזמן של ההתקרבות ליעד: קטן = מהיר יותר, גדול = חלק יותר
+_FREEZE = 0.3 # אחרי קליק לא מזיזים את הסמן, כי הראש/היד זזים קצת בזמן המחווה
 
 # טווח התנועה (חצי רוחב, חצי גובה) בקואורדינטות מנורמלות של הפריים, לרגישות 1
 _RANGE = {"hand": (0.28, 0.22), "head": (0.10, 0.07)}
@@ -84,7 +87,36 @@ class PynputMouse:
 
     @position.setter
     def position(self, xy):
+        if sys.platform == "win32" and _send_absolute_move(*xy):
+            return
         self._c.position = xy
+
+
+def _send_absolute_move(x, y):
+    """תנועת עכבר אמיתית (SendInput) ולא SetCursorPos: תוכנות ציור כמו Paint מקבלות ממנה אירוע תנועה עם הכפתור הלחוץ, ולכן גם
+    בגרירה הקו עוקב אחרי הסמן ולא נמתח ישר מנקודה לנקודה. מחזיר False אם הקריאה נכשלה (אז חוזרים ל-pynput)."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class MOUSEINPUT(ctypes.Structure):
+            _fields_ = [("dx", wintypes.LONG), ("dy", wintypes.LONG), ("mouseData", wintypes.DWORD), ("dwFlags", wintypes.DWORD),
+                        ("time", wintypes.DWORD), ("dwExtraInfo", ctypes.c_void_p)]
+
+        class INPUT(ctypes.Structure):
+            class _U(ctypes.Union):
+                _fields_ = [("mi", MOUSEINPUT)]
+            _anonymous_ = ("u",)
+            _fields_ = [("type", wintypes.DWORD), ("u", _U)]
+
+        user32 = ctypes.windll.user32
+        w, h = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+        nx, ny = round(x * 65535 / max(w - 1, 1)), round(y * 65535 / max(h - 1, 1))
+        # 0x0001 MOVE | 0x8000 ABSOLUTE (המסך הראשי, ממופה ל-0..65535)
+        event = INPUT(type=0, mi=MOUSEINPUT(nx, ny, 0, 0x0001 | 0x8000, 0, None))
+        return user32.SendInput(1, ctypes.byref(event), ctypes.sizeof(INPUT)) == 1
+    except Exception:
+        return False
 
 
 def screen_size(widget=None):
@@ -131,6 +163,9 @@ class MouseController:
         self.point = None          # הנקודה השולטת בקואורדינטות הפריים (לשובל), או None
         self.active_slot = None    # איזו יד מזיזה את הסמן עכשיו (0 שמאל, 1 ימין), או None
         self.active_slot_prev = None
+        self._target = self._cur = self._written = None   # יעד הסמן, מיקומו החלק, ומה שנכתב לעכבר בפועל
+        self._glide_thread = None
+        self._glide_stop = threading.Event()
 
     def recenter_head(self):
         """קובע את מיקום הראש הנוכחי כמרכז המסך."""
@@ -190,7 +225,58 @@ class MouseController:
         self.fx.min_cutoff = self.fy.min_cutoff = cutoff
         x = self.fx(nx, now) * (self.sw - 1)
         y = self.fy(ny, now) * (self.sh - 1)
-        self.mouse.position = (int(x), int(y))
+        if self._glide_thread is None:
+            self.mouse.position = (int(x), int(y))
+        else:
+            old, cur = self._target, self._cur
+            if old is None or cur is None or math.hypot(old[0] - cur[0], old[1] - cur[1]) < 1.0:
+                real = self.cursor_position()   # הסמן נח: ממשיכים מהמקום האמיתי שלו (ייתכן שהמשתמש הזיז אותו בעכבר)
+                if real is not None:
+                    self._cur, self._written = (float(real[0]), float(real[1])), real
+            self._target = (x, y)
+
+    # --- תנועה חלקה ---------------------------------------------------------------
+    # המעקב נותן נקודה אחת לפריים (בערך 30 בשנייה). אם הסמן קופץ ישר אליה, תוכנת ציור כמו Paint מחברת בין הנקודות בקווים ישרים,
+    # וכל עיגול יוצא מצולע. לכן חוט נפרד מקרב את הסמן ליעד בצעדים קטנים ובקצב גבוה, והציור יוצא עקום וחלק.
+
+    def start_glide(self):
+        if self._glide_thread is None:
+            self._glide_stop.clear()
+            self._glide_thread = threading.Thread(target=self._glide_loop, name="cursor-glide", daemon=True)
+            self._glide_thread.start()
+        return self
+
+    def stop_glide(self):
+        thread, self._glide_thread = self._glide_thread, None
+        if thread is not None:
+            self._glide_stop.set()
+            thread.join(timeout=1.0)
+
+    def _glide_loop(self):
+        last = time.perf_counter()
+        while not self._glide_stop.wait(_GLIDE_INTERVAL):
+            now = time.perf_counter()
+            try:
+                self.glide_step(now - last)
+            except Exception as e:  # כשל בהזזת הסמן לא מפיל את החוט
+                log.warning("cursor glide step failed: %s", e)
+            last = now
+
+    def glide_step(self, dt):
+        """צעד אחד לעבר היעד. מזיז את הסמן האמיתי רק כשהמיקום השלם השתנה."""
+        target = self._target
+        if target is None:
+            return
+        if self._cur is None:
+            self._cur = target
+        alpha = 1.0 - math.exp(-max(dt, 1e-4) / _GLIDE_TAU)
+        cx = self._cur[0] + (target[0] - self._cur[0]) * alpha
+        cy = self._cur[1] + (target[1] - self._cur[1]) * alpha
+        self._cur = (cx, cy)
+        pos = (int(round(cx)), int(round(cy)))
+        if pos != self._written:
+            self._written = pos
+            self.mouse.position = pos
 
     def update(self, hands, face, signs, labels=None):
         """נקרא מחוט המעקב אחרי כל פריים. signs לפי משבצות (0 שמאל, 1 ימין); labels = משבצת לכל יד ב-hands (אם חסר: לפי הסדר)."""

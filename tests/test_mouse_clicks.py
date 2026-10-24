@@ -146,7 +146,7 @@ def test_thumbs_up_no_longer_scrolls(monkeypatch):
 # --- on / off by gesture ---------------------------------------------------
 
 def test_thumbs_up_turns_control_on_and_off(monkeypatch):
-    m, t = make(monkeypatch, enabled=False)
+    m, t = make(monkeypatch, enabled=False, thumbs_up="toggle_control")
     run(m, t, [(["thumbs_up", None],)] * 4)
     assert m.cfg["control_enabled"] is True
     run(m, t, [(N2,)] * 30 + [(["thumbs_up", None],)] * 4)
@@ -154,19 +154,19 @@ def test_thumbs_up_turns_control_on_and_off(monkeypatch):
 
 
 def test_holding_thumbs_up_toggles_only_once(monkeypatch):
-    m, t = make(monkeypatch, enabled=False)
+    m, t = make(monkeypatch, enabled=False, thumbs_up="toggle_control")
     run(m, t, [(["thumbs_up", None],)] * 80)            # a few seconds of holding it
     assert m.cfg["control_enabled"] is True
 
 
 def test_other_gestures_do_nothing_while_control_is_off(monkeypatch):
-    m, t = make(monkeypatch, enabled=False)
+    m, t = make(monkeypatch, enabled=False, thumbs_up="toggle_control")
     run(m, t, [(["hang_loose", None],)] * 4 + [(["three", None],)] * 4)
     assert m.mouse.clicks == [] and m.mouse.scrolls == 0
 
 
 def test_turning_off_releases_a_drag(monkeypatch):
-    m, t = make(monkeypatch, fist="drag")
+    m, t = make(monkeypatch, fist="drag", thumbs_up="toggle_control")
     run(m, t, [(["fist", None],)] * 3)
     assert m.dragging == "left"
     run(m, t, [(N2,)] * 10 + [(["thumbs_up", None],)] * 3)
@@ -219,7 +219,7 @@ def test_with_both_hands_the_cursor_does_not_jump_between_them(monkeypatch):
 
 
 def test_the_point_is_tracked_even_while_control_is_off(monkeypatch):
-    m, t = make(monkeypatch, enabled=False)
+    m, t = make(monkeypatch, enabled=False, thumbs_up="toggle_control")
     run(m, t, [(N2, [hand_at(0.4, 0.5)], [1])])
     assert np.allclose(m.point, (0.4, 0.5)) and m.mouse.position == (0, 0)   # the cursor itself did not move
 
@@ -264,3 +264,20 @@ def test_a_failing_script_does_not_stop_the_tracker(monkeypatch):
     run(m, t, [(["rock", None],)] * 3)                   # no exception
     assert m.mouse.clicks == []
 
+
+
+def test_the_cursor_glides_in_many_small_steps_so_drawing_is_not_a_polygon(monkeypatch):
+    m, t = make(monkeypatch)
+    m._glide_thread = object()   # glide mode without a real thread: the test calls glide_step itself
+    m.update([hand_at(0.5, 0.45)], None, [None, None], [0])
+    m.glide_step(0.008)
+    start = m.mouse.position
+    m.update([hand_at(0.6, 0.5)], None, [None, None], [0])   # one camera frame later the hand is far away
+    seen = []
+    for _ in range(60):
+        m.glide_step(0.008)
+        seen.append(m.mouse.position)
+    xs = [p[0] for p in seen]
+    assert len(set(seen)) > 25 and xs == sorted(xs) and xs[0] < xs[-1]   # a smooth run, not one jump
+    assert max(b[0] - a[0] for a, b in zip([start] + seen, seen)) < 100   # no single big step
+    assert abs(seen[-1][0] - m._target[0]) < 5

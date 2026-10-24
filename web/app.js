@@ -23,7 +23,7 @@ const PREVIEW = TOKEN === "__TOKEN__";
 const mock = {
   config: {
     version: 1, app_version: "2.1.0 (תצוגה מקדימה)", control_enabled: false,
-    settings: { show_hand_mesh: true, show_face_mesh: true, show_trail: false, show_coords: false, run_in_background: false,
+    settings: { show_hand_mesh: true, show_face_mesh: true, show_trail: true, show_coords: true, run_in_background: false,
       auto_update_check: true, beta_channel: false, control_source: "hand", control_hand: "both", sensitivity: 1.0, smoothing: 0.5 },
     limits: { sensitivity: [0.4, 3.0], smoothing: [0.0, 1.0] },
     actions: [["none", "ללא"], ["left_click", "קליק שמאלי"], ["right_click", "קליק ימני"], ["double_click", "קליק כפול"], ["middle_click", "קליק אמצעי"],
@@ -32,7 +32,7 @@ const mock = {
       .map(([id, label, param]) => ({ id, label, param: !!param })),
     groups: {
       hand: [["pinch", "צביטה", "none"], ["ok", "אוקיי", "double_click"], ["victory", "ניצחון (V)", "left_click"], ["hang_loose", "היי (Hang Loose)", "right_click"],
-        ["thumbs_up", "לייק", "toggle_control"], ["thumbs_down", "דיסלייק", "none"], ["fist", "אגרוף", { type: "hotkey", keys: "Ctrl+C" }],
+        ["thumbs_up", "לייק", "none"], ["thumbs_down", "דיסלייק", "none"], ["fist", "אגרוף", { type: "hotkey", keys: "Ctrl+C" }],
         ["open", "כף פתוחה", "none"], ["point", "הצבעה", "none"], ["three", "שלוש אצבעות", "scroll_up"], ["rock", "רוק", "scroll_down"]]
         .map(([id, name, binding]) => ({ id, name, binding })),
       custom: [{ id: "custom:demo", name: "אצבע קטנה וקמיצה", binding: "none" }],

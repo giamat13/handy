@@ -106,7 +106,7 @@ def test_gestures_are_all_hand_gestures_and_there_are_no_winks(be):
     assert "head" not in g and not any(k.startswith("wink") for k in actions.GESTURES)
     assert {"victory", "hang_loose", "thumbs_up", "fist"} <= hand
     assert hand == set(actions.GESTURES)
-    assert next(r for r in g["hand"] if r["id"] == "thumbs_up")["text"] == actions.ACTIONS["toggle_control"]
+    assert next(r for r in g["hand"] if r["id"] == "thumbs_up")["text"] == actions.ACTIONS["none"]
 
 
 def test_custom_gestures_are_listed_under_custom(be):
@@ -360,7 +360,7 @@ def test_the_app_icon_is_served_for_the_taskbar(server):
 def test_api_needs_the_token(server):
     assert call(server, "/api/state", token=False)[0] == 401
     assert call(server, "/api/state", headers={"X-Handy-Token": "nope"}, token=False)[0] == 401
-    assert call(server, "/api/set", {"key": "show_trail", "value": True}, token=False)[0] == 401
+    assert call(server, "/api/set", {"key": "run_in_background", "value": True}, token=False)[0] == 401
     assert call(server, "/video", token=False)[0] == 401
     status, body, _ = call(server, "/api/state")
     assert status == 200 and json.loads(body)["fps"] == 29.6
@@ -373,10 +373,10 @@ def test_a_foreign_host_header_is_refused(server):
 
 
 def test_a_foreign_origin_cannot_post(server):
-    st, _, _ = call(server, "/api/set", {"key": "show_trail", "value": True}, headers={"Origin": "http://evil.example"})
-    assert st == 403 and server.backend.cfg["show_trail"] is False
-    st, _, _ = call(server, "/api/set", {"key": "show_trail", "value": True}, headers={"Origin": f"http://127.0.0.1:{server.port}"})
-    assert st == 200 and server.backend.cfg["show_trail"] is True
+    st, _, _ = call(server, "/api/set", {"key": "run_in_background", "value": True}, headers={"Origin": "http://evil.example"})
+    assert st == 403 and server.backend.cfg["run_in_background"] is False
+    st, _, _ = call(server, "/api/set", {"key": "run_in_background", "value": True}, headers={"Origin": f"http://127.0.0.1:{server.port}"})
+    assert st == 200 and server.backend.cfg["run_in_background"] is True
 
 
 def test_http_errors_and_limits(server):
@@ -387,7 +387,7 @@ def test_http_errors_and_limits(server):
         assert call(server, "/api/set", {"pad": "x" * (webui.MAX_BODY + 10)})[0] == 413
     except (ConnectionError, urllib.error.URLError):
         pass
-    assert server.backend.cfg["show_trail"] is False
+    assert server.backend.cfg["run_in_background"] is False
     req = urllib.request.Request(f"http://127.0.0.1:{server.port}/api/set", data=b"[1,2]", headers={"X-Handy-Token": server.token})
     with pytest.raises(urllib.error.HTTPError) as e:
         urllib.request.urlopen(req, timeout=5)

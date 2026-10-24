@@ -88,9 +88,9 @@ def _load_from(monkeypatch, tmp_path, content):
 def test_defaults_are_safe(monkeypatch, tmp_path):
     cfg = _load_from(monkeypatch, tmp_path, None)
     assert cfg["control_enabled"] is False and cfg["control_hand"] == "both"
-    assert cfg["show_trail"] is False and cfg["show_coords"] is False
+    assert cfg["show_trail"] is True and cfg["show_coords"] is True
     assert cfg["bindings"]["hang_loose"] == "right_click" and cfg["bindings"]["victory"] == "left_click"
-    assert cfg["bindings"]["thumbs_up"] == "toggle_control"
+    assert cfg["bindings"]["thumbs_up"] == "none"
     assert set(DEFAULT_BINDINGS) == set(GESTURES)          # every gesture has a default
 
 
@@ -106,7 +106,7 @@ def test_settings_from_2_0_are_upgraded(monkeypatch, tmp_path):
     b = cfg["bindings"]
     assert cfg["sensitivity"] == 1.7
     assert b["victory"] == "middle_click" and "peace" not in b         # the user's choice for the V sign is kept
-    assert b["thumbs_up"] == "toggle_control" and b["thumbs_down"] == "none"
+    assert b["thumbs_up"] == "none" and b["thumbs_down"] == "none"
     assert b["three"] == "scroll_up" and b["rock"] == "scroll_down"    # scrolling did not disappear
 
 

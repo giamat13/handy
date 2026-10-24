@@ -42,7 +42,7 @@ DEFAULT_BINDINGS = {
     "ok": "double_click",
     "victory": "left_click",
     "hang_loose": "right_click",
-    "thumbs_up": "toggle_control",
+    "thumbs_up": "none",
     "thumbs_down": "none",
     "fist": "none",
     "open": "none",

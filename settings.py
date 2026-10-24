@@ -104,8 +104,8 @@ DEFAULTS = {
     "settings_version": SETTINGS_VERSION,
     "show_hand_mesh": True,
     "show_face_mesh": True,
-    "show_trail": False,       # שובל אחרי הנקודה השולטת
-    "show_coords": False,      # קואורדינטות הסמן על הווידאו
+    "show_trail": True,        # שובל אחרי הנקודה השולטת
+    "show_coords": True,       # קואורדינטות הסמן על הווידאו
     "control_enabled": False,  # העכבר לא זז עד שהמשתמש מדליק (או F8)
     "control_source": "hand",  # "hand" או "head"
     "control_hand": "both",    # "right", "left" או "both": איזו יד שולטת
@@ -140,10 +140,10 @@ def _upgrade(saved):
         elif isinstance(v, dict) and "hold" in v:
             v.pop("hold")
     if saved.get("settings_version", 1) < 2:
-        # 2.0.x scrolled with thumbs up / down. If the user never changed that, move to the new defaults: thumbs up toggles
+        # 2.0.x scrolled with thumbs up / down. If the user never changed that, move to the new defaults: thumbs up does nothing
         # the control, the scrolling goes to three fingers / rock. A customised mapping is left alone.
         if bindings.get("thumbs_up") == "scroll_up" and bindings.get("thumbs_down") == "scroll_down":
-            bindings["thumbs_up"], bindings["thumbs_down"] = "toggle_control", "none"
+            bindings["thumbs_up"], bindings["thumbs_down"] = "none", "none"
             if bindings.get("three", "none") == "none":
                 bindings["three"] = "scroll_up"
             if bindings.get("rock", "none") == "none":
