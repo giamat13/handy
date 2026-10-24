@@ -61,12 +61,31 @@ def classify_hand(pts):
     if e["index"] and not (e["middle"] or e["ring"] or e["pinky"]):
         return "point"
     if e["index"] and e["middle"] and not (e["ring"] or e["pinky"]):
-        return "peace"
+        return "victory"
     if e["index"] and e["middle"] and e["ring"] and not e["pinky"]:
         return "three"
     if e["index"] and e["pinky"] and not (e["middle"] or e["ring"]):
         return "rock"
+    # אגודל ואזרת פשוטים, שלוש האצבעות האחרות מקופלות
+    if e["thumb"] and e["pinky"] and not (e["index"] or e["middle"] or e["ring"]):
+        return "hang_loose"
     return None
+
+
+def assign_slots(labels):
+    """משבץ כל יד למשבצת: 0 = שמאל, 1 = ימין. אם MediaPipe נתן לשתי ידיים אותה תווית, השנייה עוברת למשבצת הפנויה.
+    מחזיר רשימת משבצות באותו סדר של הידיים (None ליד שלישית, שלא אמורה להיות)."""
+    taken, slots = set(), []
+    for label in labels:
+        slot = 0 if label == "Left" else 1
+        if slot in taken:
+            slot = 1 - slot
+        if slot in taken:
+            slots.append(None)
+            continue
+        taken.add(slot)
+        slots.append(slot)
+    return slots
 
 
 def eye_aspect_ratio(face, idx, w, h):

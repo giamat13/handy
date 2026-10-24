@@ -5,7 +5,8 @@ GESTURES = {
     "wink_right": "קריצה ימין",
     "pinch": "צביטה",
     "ok": "אוקיי",
-    "peace": "ניצחון (V)",
+    "victory": "ניצחון (V)",
+    "hang_loose": "היי (Hang Loose)",
     "thumbs_up": "לייק",
     "thumbs_down": "דיסלייק",
     "fist": "אגרוף",
@@ -14,6 +15,9 @@ GESTURES = {
     "three": "שלוש אצבעות",
     "rock": "רוק",
 }
+
+# "peace" ו-"victory" הם אותה תנוחה (V). המזהה הישן נשאר רק כדי להעביר הגדרות שמורות מגרסה 2.0
+LEGACY_GESTURES = {"peace": "victory"}
 
 ACTIONS = {
     "none": "ללא",
@@ -24,19 +28,44 @@ ACTIONS = {
     "drag": "גרירה (בזמן המחווה)",
     "scroll_up": "גלילה למעלה",
     "scroll_down": "גלילה למטה",
+    "toggle_control": "הפעלה / כיבוי של השליטה בעכבר",
+    "hotkey": "קיצור מקשים…",
+    "script": "הרצת תוכנה / סקריפט…",
 }
 
+# פעולות שהערך שלהן הוא מילון ({"type": "hotkey", "keys": "ctrl+c"}), לא מחרוזת פשוטה
+PARAM_ACTIONS = ("hotkey", "script")
+
+# הגלילה עברה מאגודל למעלה/למטה (שמשמש עכשיו להפעלה וכיבוי) לשתי תנוחות מכוונות שלא קורות בטעות
 DEFAULT_BINDINGS = {
     "wink_left": "left_click",
     "wink_right": "right_click",
     "pinch": "none",
     "ok": "double_click",
-    "peace": "none",
-    "thumbs_up": "scroll_up",
-    "thumbs_down": "scroll_down",
+    "victory": "left_click",
+    "hang_loose": "right_click",
+    "thumbs_up": "toggle_control",
+    "thumbs_down": "none",
     "fist": "none",
     "open": "none",
     "point": "none",
-    "three": "none",
-    "rock": "none",
+    "three": "scroll_up",
+    "rock": "scroll_down",
 }
+
+
+def binding_kind(binding):
+    """סוג הפעולה של קשירה: מחרוזת פשוטה, או השדה type של מילון."""
+    if isinstance(binding, dict):
+        return binding.get("type", "none")
+    return binding if isinstance(binding, str) else "none"
+
+
+def binding_text(binding):
+    """טקסט קצר להצגה בתפריט המיפוי."""
+    kind = binding_kind(binding)
+    if kind == "hotkey":
+        return f"קיצור: {binding.get('keys', '')}"
+    if kind == "script":
+        return f"הרצה: {binding.get('path', '')}"
+    return ACTIONS.get(kind, ACTIONS["none"])

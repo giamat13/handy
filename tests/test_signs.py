@@ -2,7 +2,7 @@
 import numpy as np
 
 from signs import (
-    LEFT_EYE, RIGHT_EYE, WinkDetector, classify_hand,
+    LEFT_EYE, RIGHT_EYE, WinkDetector, assign_slots, classify_hand,
 )
 
 # בסיס כל אצבע (MCP) ומיקום רוחבי
@@ -45,8 +45,28 @@ def test_point():
     assert classify_hand(make_hand({"index"}, "in")) == "point"
 
 
-def test_peace():
-    assert classify_hand(make_hand({"index", "middle"}, "in")) == "peace"
+def test_victory():
+    assert classify_hand(make_hand({"index", "middle"}, "in")) == "victory"
+    assert classify_hand(make_hand({"index", "middle"}, "out")) == "victory"  # האגודל לא משנה
+
+
+def test_hang_loose():
+    assert classify_hand(make_hand({"pinky"}, "out")) == "hang_loose"
+
+
+def test_hang_loose_is_not_confused_with_its_neighbours():
+    assert classify_hand(make_hand({"pinky"}, "in")) != "hang_loose"              # בלי אגודל פשוט זו לא שאקה
+    assert classify_hand(make_hand({"index", "pinky"}, "out")) == "rock"          # רוק, גם עם אגודל
+    assert classify_hand(make_hand(set(), "out")) != "hang_loose"
+    assert classify_hand(make_hand({"index"}, "out")) == "point"
+
+
+def test_assign_slots():
+    assert assign_slots(["Left", "Right"]) == [0, 1]
+    assert assign_slots(["Right", "Left"]) == [1, 0]
+    assert assign_slots(["Right", "Right"]) == [1, 0]   # אותה תווית פעמיים: השנייה עוברת למשבצת הפנויה
+    assert assign_slots(["Left", "Left", "Right"]) == [0, 1, None]
+    assert assign_slots([]) == []
 
 
 def test_thumbs():
