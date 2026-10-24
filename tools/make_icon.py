@@ -1,4 +1,4 @@
-"""Make icon.ico (the Windows icon of Handy2.exe and the installer) from icon.png.
+"""Make icon.ico (the Windows icon of Handy2.exe and the installer) and icon.icns (the macOS app bundle) from icon.png.
 
     python tools/make_icon.py
 """
@@ -17,3 +17,6 @@ if __name__ == "__main__":
     out = ROOT / "icon.ico"
     square.save(out, format="ICO", sizes=SIZES)
     print(f"{out}  {out.stat().st_size / 1024:.0f} KB")
+    icns = ROOT / "icon.icns"
+    square.resize((1024, 1024), Image.LANCZOS).save(icns, format="ICNS")
+    print(f"{icns}  {icns.stat().st_size / 1024:.0f} KB")

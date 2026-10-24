@@ -8,7 +8,7 @@ one feature (three additions in one release make "2.1.0", not "2.3.0"). ALWAYS w
 Pre-releases add "-beta.N" ("2.1.0-beta.1"); the release workflow names them, and a pre-release build knows its N from
 _prerelease.py (written by tools/write_prerelease.py into a PRE build only, never committed).
 """
-__version__ = "2.0.1"
+__version__ = "2.1.0"
 REPO = "giamat13/handy"
 try:
     from _prerelease import PRE

@@ -4,6 +4,9 @@ __pycache__/
 *.log
 settings.json
 gestures.json
+custom_gestures.json
+icon.icns
+dist_nuitka/
 _prerelease.py
 build/
 dist/

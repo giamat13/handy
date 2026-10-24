@@ -4,6 +4,6 @@ numpy<2
 customtkinter
 pillow
 pynput
-mouse
-keyboard
-pywin32
+mouse; sys_platform == "win32"
+keyboard; sys_platform == "win32"
+pywin32; sys_platform == "win32"

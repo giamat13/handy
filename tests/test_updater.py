@@ -50,7 +50,7 @@ class Mock(BaseHTTPRequestHandler):
 
 @pytest.fixture()
 def mock(tmp_path, monkeypatch):
-    Mock.state = {"tag": "v2.1.0"}
+    Mock.state = {"tag": "v2.99.0"}
     srv = HTTPServer(("127.0.0.1", 0), Mock)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     port = srv.server_port
@@ -75,7 +75,7 @@ def test_version_order():
 
 def test_check_finds_a_newer_release(mock):
     info = updater.check({})
-    assert info["available"] and info["latest"] == "2.1.0" and "something new" in info["notes"]
+    assert info["available"] and info["latest"] == "2.99.0" and "something new" in info["notes"]
     assert info["asset"]["sha256"] == DIGEST and updater.can_install(info)
 
 
@@ -91,12 +91,12 @@ def test_check_with_no_releases_does_not_raise(mock):
 
 
 def test_skipped_version_is_marked(mock):
-    assert updater.check({"update_skipped": "2.1.0"})["skipped"]
+    assert updater.check({"update_skipped": "2.99.0"})["skipped"]
     assert not updater.check({"update_skipped": "2.0.5"})["skipped"]
 
 
 def test_a_prerelease_is_offered_only_in_tester_mode(mock):
-    mock.update(tag="v2.1.0-beta.1", pre=True)
+    mock.update(tag="v2.99.0-beta.1", pre=True)
     assert updater.check({"beta_channel": True})["available"]
 
 

@@ -12,14 +12,25 @@ Version scheme: **2.X.Y** — X is a feature, Y is a fix. A release with a new f
 6. Release, either way:
    - **Tag:** `git tag vX.Y.Z && git push origin vX.Y.Z` (the tag must equal `version.py`).
    - **By hand:** Actions → *release* → *Run workflow* on `main` (the tag is created for you). Tick *prerelease* for a test build: its tag is `vX.Y.Z-beta.N`.
-7. The workflow runs the tests, builds `Handy2Setup.exe` and `Handy2-X.Y.Z-portable.zip`, and publishes them.
+7. The workflow runs the tests, builds every target and publishes them. Open the run summary: the *publish* job lists each target as `built` or `MISSING`. The Windows files (`Handy2Setup.exe`, `Handy2-X.Y.Z-portable.zip`) are required; the NSIS installer, the macOS `.zip`, the Linux `.tar.gz` and the three Nuitka builds are best effort and are attached only if they were built.
 
 ## Build locally
 
 `build.bat` (needs `pip install -r requirements-dev.txt`; Inno Setup 6 is optional and only needed for the installer).
 
+Other targets (each on its own system):
+
+- NSIS: `makensis /DVERSION=X.Y.Z installer.nsi` after `build.bat` has made `dist\Handy2`.
+- macOS: `python tools/make_icon.py && pyinstaller Handy2.spec && python tools/make_platform_archive.py macos`
+- Linux: `pyinstaller Handy2.spec && python tools/make_platform_archive.py linux`
+- Nuitka: `pip install nuitka ordered-set zstandard && python tools/build_nuitka.py && python tools/make_platform_archive.py nuitka`
+
+The in-app updater downloads only `Handy2Setup*.exe`, so the other file names must never start with `Handy2Setup` (a test checks this).
+
 ## Not done yet
 
+- The macOS, Linux, Nuitka and NSIS builds were written without being run on those systems. Look at the first real run on GitHub and fix what it reports; the macOS app and the Linux build also need a manual check of the camera, the mouse and the key actions.
+- macOS: no signing or notarization, so the first start needs right click → Open.
 - Code signing: the EXE and installer are unsigned, so Windows SmartScreen / Smart App Control may warn or block them.
 - The automatic update has only been tested against a mock GitHub. Before relying on it, test it once for real: install one release, publish the next, and watch the update window, the download, the silent install (`/SILENT /update=1`) and the restart.
 - An unsigned installer may be blocked by Windows; the update window then sends the user to the release page.

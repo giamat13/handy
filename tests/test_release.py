@@ -79,12 +79,47 @@ def test_workflow_matches_the_build_files():
     assert "Handy2Setup" in wf and "OutputBaseFilename=Handy2Setup" in iss
     assert "Handy2.spec" in wf and 'name="Handy2"' in spec
     assert "Handy2-*-portable.zip" in wf and "Handy2-{__version__}-portable.zip" in read("tools/make_portable.py")
-    assert "needs: [tests, build]" in wf          # nothing is published unless the tests pass
+    # nothing is published unless the tests and the Windows build pass; the other targets are optional
+    assert "needs.tests.result == 'success'" in wf and "needs.build.result == 'success'" in wf
+    assert "needs: [tests, build, build-macos, build-linux, build-nuitka]" in wf
     assert "version.py" in wf and "REPO" in read("version.py")
 
 
+def test_every_target_has_a_job_and_a_file_name_the_publish_job_expects():
+    wf = read(".github/workflows/release.yml")
+    for job in ("build:", "build-macos:", "build-linux:", "build-nuitka:", "publish:"):
+        assert f"\n  {job}" in wf, job
+    for name in ("Handy2-NSIS-Setup-", "-macos.zip", "-linux-x64.tar.gz", "-windows-nuitka.zip", "-macos-nuitka.zip",
+                 "-linux-nuitka.tar.gz"):
+        assert name in wf, name
+    assert "Handy2-NSIS-Setup-" in read("installer.nsi")
+    assert "Handy2.app" in read("Handy2.spec") and "BUNDLE" in read("Handy2.spec")
+
+
+def test_archive_names_match_the_workflow():
+    import make_platform_archive as mpa
+    v = version.__version__
+    assert mpa.archive_name("macos") == f"Handy2-{v}-macos.zip"
+    assert mpa.archive_name("linux") == f"Handy2-{v}-linux-x64.tar.gz"
+    assert mpa.archive_name("nuitka").startswith(f"Handy2-{v}-") and "-nuitka." in mpa.archive_name("nuitka")
+
+
+def test_the_updater_never_picks_another_installer():
+    """Only the Inno Setup installer is downloaded by the in-app updater; the NSIS one must not match its pattern."""
+    import updater
+    assert updater.ASSET_RE.match("Handy2Setup.exe")
+    assert not updater.ASSET_RE.match(f"Handy2-NSIS-Setup-{version.__version__}.exe")
+    assert not updater.ASSET_RE.match(f"Handy2-{version.__version__}-macos.zip")
+
+
+def test_the_installers_keep_the_settings_folder_alone():
+    iss, nsi = read("installer.iss"), read("installer.nsi")
+    assert "%APPDATA%\\Handy " in iss and "APPDATA" not in nsi.split("Section", 1)[1]   # nothing in the sections touches APPDATA
+
+
 def test_every_file_the_build_needs_exists():
-    for rel in ("Handy2.spec", "installer.iss", "build.bat", "LICENSE", "THIRD_PARTY_NOTICES.md", "icon.png",
+    for rel in ("Handy2.spec", "installer.iss", "installer.nsi", "build.bat", "LICENSE", "THIRD_PARTY_NOTICES.md", "icon.png",
                 "requirements.txt", "requirements-dev.txt", "run.py", "updater.py", "update_ui.py", "tools/make_icon.py",
-                "tools/make_version_info.py", "tools/make_portable.py", "tools/write_prerelease.py"):
+                "tools/make_version_info.py", "tools/make_portable.py", "tools/write_prerelease.py",
+                "tools/build_nuitka.py", "tools/make_platform_archive.py"):
         assert (ROOT / rel).is_file(), rel

@@ -1,11 +1,12 @@
 ; Inno Setup script -> installer_output\Handy2Setup.exe
 ; Build:  ISCC.exe installer.iss   (after: pyinstaller Handy2.spec)
 ; Updates install OVER the existing app (never uninstall-then-install). Per-user install (no admin).
-; Settings live in %APPDATA%\Handy2 and are NOT touched by install or uninstall.
+; Settings live in %APPDATA%\Handy (since 2.1.0; 2.0.x used %APPDATA%\Handy2, and the app moves those files over once on its
+; first start) and are NOT touched by install or uninstall. This installer must never delete %APPDATA%\Handy or %APPDATA%\Handy2.
 
 ; the version comes from version.py (the release workflow passes /DMyAppVersion=...)
 #ifndef MyAppVersion
-  #define MyAppVersion "2.0.0"
+  #define MyAppVersion "2.1.0"
 #endif
 
 [Setup]

@@ -18,4 +18,10 @@ if exist "%ISCC%" (
 ) else (
   echo Inno Setup 6 is not installed: skipping the installer.
 )
+set NSIS=C:\Program Files (x86)\NSIS\makensis.exe
+if exist "%NSIS%" (
+  "%NSIS%" /DVERSION=%VERSION% installer.nsi || exit /b 1
+) else (
+  echo NSIS is not installed: skipping the NSIS installer.
+)
 echo Done: version %VERSION%
