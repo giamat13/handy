@@ -8,8 +8,8 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = [("web", "web"), ("icon.png", "."), ("icon.ico", ".")]
 binaries = []
-hiddenimports = ["keyboard", "pystray"]
-for pkg in ("mediapipe", "pystray"):
+hiddenimports = ["keyboard", "pystray", "webview"]
+for pkg in ("mediapipe", "pystray", "webview"):
     d, b, h = collect_all(pkg)
     datas += d; binaries += b; hiddenimports += h
 

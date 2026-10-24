@@ -4,6 +4,7 @@ numpy<2
 pillow
 pynput
 pystray
+pywebview
 mouse; sys_platform == "win32"
 keyboard; sys_platform == "win32"
 pywin32; sys_platform == "win32"

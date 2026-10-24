@@ -1,51 +1,47 @@
-"""פותח את הממשק (דף HTML מקומי) בחלון "אפליקציה" של Edge / Chrome / Chromium: בלי סרגל כתובת, עם פרופיל נפרד כדי שהחלון
-לא יתמזג עם הדפדפן הרגיל של המשתמש. אם אין דפדפן כזה, פותחים בדפדפן ברירת המחדל."""
-import os
-import shutil
+"""פותח את הממשק (דף HTML מקומי) בחלון מקורי של pywebview (ב-Windows: WebView2): בלי סרגל כתובת, בלי פרופיל דפדפן ובלי חלונות
+של Edge. pywebview חייב לרוץ בחוט הראשי של תהליך משלו, ולכן החלון נפתח בתהליך בן (אותה תוכנה עם --window) שמסתיים כשהחלון נסגר.
+אם pywebview לא זמין, פותחים בדפדפן ברירת המחדל."""
 import subprocess
 import sys
 import webbrowser
 from pathlib import Path
 
-WINDOW_SIZE = "1280,860"
+WINDOW_FLAG = "--window"
+WINDOW_SIZE = (1280, 860)
+TITLE = "Handy 2"
+_ENTRY = Path(__file__).resolve().parent / "run.py"
 
 
-def candidates(platform=None, env=None, which=shutil.which):
-    """נתיבים אפשריים לדפדפן מבוסס Chromium, לפי העדפה (Edge קודם ב-Windows: הוא תמיד מותקן שם)."""
-    platform = platform or sys.platform
-    env = os.environ if env is None else env
-    if platform == "win32":
-        roots = [env.get(k) for k in ("ProgramFiles(x86)", "ProgramFiles", "LOCALAPPDATA") if env.get(k)]
-        rel = ("Microsoft/Edge/Application/msedge.exe", "Google/Chrome/Application/chrome.exe", "Chromium/Application/chrome.exe")
-        return [str(Path(r) / p) for p in rel for r in roots]
-    if platform == "darwin":
-        return ["/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-                "/Applications/Chromium.app/Contents/MacOS/Chromium"]
-    return [p for p in (which(n) for n in ("microsoft-edge", "google-chrome", "chromium", "chromium-browser")) if p]
+def command(url, frozen=None, executable=None):
+    """פקודת התהליך שמציג את החלון: ב-EXE (PyInstaller / Nuitka) הקובץ עצמו, מהמקור run.py."""
+    frozen = ("__compiled__" in globals() or getattr(sys, "frozen", False)) if frozen is None else frozen
+    exe = executable or sys.executable
+    return [exe, WINDOW_FLAG, url] if frozen else [exe, str(_ENTRY), WINDOW_FLAG, url]
 
 
-def find_browser(exists=os.path.isfile, **kw):
-    return next((p for p in candidates(**kw) if exists(p)), None)
-
-
-def command(browser, url, profile_dir):
-    return [browser, f"--app={url}", f"--user-data-dir={profile_dir}", f"--window-size={WINDOW_SIZE}", "--no-first-run",
-            "--no-default-browser-check", "--disable-features=Translate"]
-
-
-def open_window(url, profile_dir, popen=subprocess.Popen, browser=None):
+def open_window(url, popen=subprocess.Popen, **kw):
     """פותח את הממשק. מחזיר True אם נפתח חלון אפליקציה, False אם נפתח הדפדפן הרגיל (או כלום)."""
-    browser = browser or find_browser()
-    if browser:
-        try:
-            Path(profile_dir).mkdir(parents=True, exist_ok=True)
-            popen(command(browser, url, profile_dir), shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                  stderr=subprocess.DEVNULL, close_fds=True)
-            return True
-        except OSError:
-            pass
+    try:
+        popen(command(url, **kw), shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
+        return True
+    except OSError:
+        _browser(url)
+        return False
+
+
+def _browser(url):
     try:
         webbrowser.open(url)
     except Exception:
         pass
-    return False
+
+
+def show(url):
+    """רץ בתהליך הבן: חלון pywebview עד שסוגרים אותו (חוסם). בלי pywebview או אם הוא נכשל: דפדפן ברירת המחדל."""
+    try:
+        import webview
+
+        webview.create_window(TITLE, url, width=WINDOW_SIZE[0], height=WINDOW_SIZE[1])
+        webview.start()   # private_mode: בלי אחסון קבוע, אז גם אין פרופיל על הדיסק
+    except Exception:
+        _browser(url)

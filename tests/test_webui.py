@@ -532,24 +532,31 @@ def test_skip_remembers_the_version():
 
 # --- the window launcher -------------------------------------------------------
 
-def test_browser_candidates_per_system(tmp_path):
-    win = window.candidates("win32", {"ProgramFiles(x86)": "C:/PF86", "ProgramFiles": "C:/PF", "LOCALAPPDATA": "C:/L"})
-    assert win[0].replace("\\", "/") == "C:/PF86/Microsoft/Edge/Application/msedge.exe" and any("chrome.exe" in p for p in win)
-    assert "Microsoft Edge" in window.candidates("darwin")[0]
-    assert window.candidates("linux", which=lambda n: f"/usr/bin/{n}" if n == "chromium" else None) == ["/usr/bin/chromium"]
-    assert window.find_browser(exists=lambda p: "chrome.exe" in p, platform="win32", env={"ProgramFiles": "C:/PF"}).endswith("chrome.exe")
-    assert window.find_browser(exists=lambda p: False, platform="win32", env={}) is None
+def test_the_window_runs_in_a_child_process_of_the_same_program():
+    assert window.command("http://x/", frozen=True, executable="Handy2.exe") == ["Handy2.exe", "--window", "http://x/"]
+    src = window.command("http://x/", frozen=False, executable="py")
+    assert src[0] == "py" and src[1].endswith("run.py") and src[2:] == ["--window", "http://x/"]
 
 
-def test_the_window_opens_as_an_app_with_its_own_profile_and_no_shell(tmp_path):
+def test_the_window_opens_without_a_shell_and_without_a_browser_profile():
     seen = {}
-    ok = window.open_window("http://127.0.0.1:1/?t=x", tmp_path / "prof", popen=lambda argv, **kw: seen.update(argv=argv, kw=kw), browser="B.exe")
-    assert ok and seen["argv"][0] == "B.exe" and "--app=http://127.0.0.1:1/?t=x" in seen["argv"]
-    assert any(a.startswith("--user-data-dir=") for a in seen["argv"]) and seen["kw"]["shell"] is False and (tmp_path / "prof").is_dir()
+    ok = window.open_window("http://127.0.0.1:1/?t=x", popen=lambda argv, **kw: seen.update(argv=argv, kw=kw), frozen=True, executable="H.exe")
+    assert ok and seen["argv"] == ["H.exe", "--window", "http://127.0.0.1:1/?t=x"] and seen["kw"]["shell"] is False
 
 
-def test_without_a_chromium_browser_the_default_browser_is_used(tmp_path, monkeypatch):
+def test_if_the_child_cannot_start_the_default_browser_is_used(monkeypatch):
     opened = []
-    monkeypatch.setattr(window, "find_browser", lambda **k: None)
     monkeypatch.setattr(window.webbrowser, "open", lambda u: opened.append(u))
-    assert window.open_window("http://127.0.0.1:1/", tmp_path) is False and opened == ["http://127.0.0.1:1/"]
+
+    def boom(*a, **k):
+        raise OSError
+
+    assert window.open_window("http://127.0.0.1:1/", popen=boom) is False and opened == ["http://127.0.0.1:1/"]
+
+
+def test_without_pywebview_the_default_browser_is_used(monkeypatch):
+    opened = []
+    monkeypatch.setitem(sys.modules, "webview", None)   # import webview -> ImportError
+    monkeypatch.setattr(window.webbrowser, "open", lambda u: opened.append(u))
+    window.show("http://127.0.0.1:1/")
+    assert opened == ["http://127.0.0.1:1/"]

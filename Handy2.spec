@@ -11,9 +11,9 @@ from version import __version__  # noqa: E402
 # the interface is the web/ folder (served to the app window); the icons are the window's taskbar icon and the tray icon
 datas = [("web", "web"), ("icon.png", "."), ("icon.ico", ".")]
 binaries = []
-hiddenimports = ["pystray"]
-# without this the EXE would be broken (the mediapipe models are data files)
-for pkg in ("mediapipe", "pystray"):
+hiddenimports = ["pystray", "webview"]
+# without this the EXE would be broken (the mediapipe models are data files; pywebview ships its own js and dlls)
+for pkg in ("mediapipe", "pystray", "webview"):
     try:
         d, b, h = collect_all(pkg)
     except Exception as e:

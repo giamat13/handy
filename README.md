@@ -50,7 +50,7 @@ In Settings choose **קיצור מקשים…** or **הרצת תוכנה / סק�
 
 ## The interface
 
-The window is a web page written in HTML, CSS and JavaScript (`web/index.html`, `web/style.css`, `web/app.js`). The program serves it to this PC only (`127.0.0.1`, a random port and a random key in the address) together with the live video and a small API, and opens it in an *app window* (no address bar) of Microsoft Edge or Google Chrome, with its own profile. If neither is installed it opens your default browser. The program's icon is the page's icon, so it is also the icon of the taskbar button.
+The window is a web page written in HTML, CSS and JavaScript (`web/index.html`, `web/style.css`, `web/app.js`). The program serves it to this PC only (`127.0.0.1`, a random port and a random key in the address) together with the live video and a small API, and shows it in its own native window (no address bar, no browser profile, using the WebView2 runtime that comes with Windows 10 / 11). If that is not available it opens your default browser. The program's icon is the page's icon, so it is also the icon of the taskbar button.
 
 To work on the design, open `web/index.html` straight from the folder (for example with Live Server): without the program behind it the page shows sample data.
 
@@ -61,7 +61,7 @@ Closing the window ends the program, unless **Run in the background** is on (Set
 - Windows 10 / 11, macOS or Linux (X11)
 - Python 3.12
 - A webcam
-- Microsoft Edge or Google Chrome (Edge is part of Windows 10 / 11)
+- The Microsoft Edge WebView2 runtime (part of Windows 10 / 11)
 
 System notes:
 
@@ -109,7 +109,7 @@ Version 2.0.x kept them in `%APPDATA%\Handy2`. The first start of the new versio
 | `webui.py` | The local server and the API behind the page, with its security checks |
 | `web/` | The interface: `index.html`, `style.css`, `app.js`, icons |
 | `render.py` | Draws the live video (mesh, trail, coordinates) and encodes it for the page |
-| `window.py` | Opens the page in an Edge / Chrome app window |
+| `window.py` | Shows the page in a native pywebview window (a child process) |
 | `tray.py` | The system tray icon (run in the background) |
 | `update_service.py` | Automatic update (check, download, install) without windows |
 | `camera.py` | Threaded camera capture, always the latest frame |

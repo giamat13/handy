@@ -75,7 +75,6 @@ class Application:
         self._hotkeys = None
         self._register_hotkeys()
         self._last_enabled = None
-        self._profile = settings.DIR / "webview"
         self.background_start = background_start
 
     def _tray_image(self):
@@ -115,7 +114,7 @@ class Application:
 
     def open_window(self):
         self.tray.stop()
-        window.open_window(self.server.url, self._profile)
+        window.open_window(self.server.url)
 
     def _handle(self, cmd):
         if cmd == "show":
@@ -169,7 +168,7 @@ def run(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     url = find_running(settings.DIR)
     if url:  # כבר רץ: פותחים חלון אצל העותק הקיים ויוצאים
-        window.open_window(url, settings.DIR / "webview")
+        window.open_window(url)
         return
     app = Application(background_start="--background" in argv)
     if app.ok:
