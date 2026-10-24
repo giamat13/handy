@@ -121,6 +121,14 @@ def test_an_upgraded_file_is_not_upgraded_again(monkeypatch, tmp_path):
     assert cfg["bindings"]["thumbs_up"] == "scroll_up"
 
 
+def test_old_drag_and_long_press_settings_become_plain_clicks(monkeypatch, tmp_path):
+    old = {"settings_version": 2, "bindings": {"fist": "drag", "open": "hold_right", "point": "hold_middle", "pinch": "left_click",
+                                              "ok": {"type": "hotkey", "keys": "Ctrl+C", "hold": True}}}
+    b = _load_from(monkeypatch, tmp_path, old)["bindings"]
+    assert (b["fist"], b["open"], b["point"], b["pinch"]) == ("left_click", "right_click", "middle_click", "left_click")
+    assert b["ok"] == {"type": "hotkey", "keys": "Ctrl+C"}
+
+
 def test_hotkey_bindings_survive_a_save_and_load(monkeypatch, tmp_path):
     cfg = _load_from(monkeypatch, tmp_path, None)
     cfg["bindings"]["fist"] = {"type": "hotkey", "keys": "ctrl+c"}

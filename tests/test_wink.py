@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -70,6 +71,31 @@ def test_a_wink_on_the_asymmetric_face_is_found_per_eye():
     assert feed(d, face(0.0015, 0.012), 4) == "wink_right"
     feed(d, face(0.008, 0.012), 4)
     assert feed(d, face(0.008, 0.002), 4) == "wink_left"
+
+
+def test_a_real_wink_where_the_other_eye_squints_too_is_found():
+    d = WinkDetector(3)
+    feed(d, face(0.012, 0.012), 40)
+    assert feed(d, face(0.002, 0.009), 4) == "wink_right"                 # the open eye narrows to 75%: people cannot wink without it
+    feed(d, face(0.012, 0.012), 4)
+    assert feed(d, face(0.0085, 0.002), 4) == "wink_left"                 # even to ~70%
+
+
+def test_a_blink_that_starts_with_one_eye_is_not_a_wink():
+    d = WinkDetector(3)
+    feed(d, face(0.012, 0.012), 40)
+    out = [feed(d, face(0.005, 0.011), 1), feed(d, face(0.003, 0.008), 1)]   # one eye leads by two frames...
+    out += [feed(d, face(0.002, 0.002), 1) for _ in range(4)]               # ...then both are shut
+    assert set(out) == {None}
+
+
+def test_readout_shows_how_open_each_eye_is():
+    d = WinkDetector(3)
+    assert d.readout() == {"right": None, "left": None, "learning": True}
+    feed(d, face(0.012, 0.012), 40)
+    assert d.readout()["learning"] is False and d.readout()["right"] == pytest.approx(1.0, abs=0.05)
+    feed(d, face(0.006, 0.012), 1)
+    assert d.readout()["right"] == pytest.approx(0.5, abs=0.1) and d.readout()["left"] == pytest.approx(1.0, abs=0.05)
 
 
 def test_a_big_eyed_face_still_works():

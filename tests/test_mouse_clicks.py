@@ -27,6 +27,7 @@ class FakeMouse:
 
     def press(self, button):
         self.pressed.append(button)
+        self.clicks.append((button, 1))   # a click is a press: it counts as one click here, and it is let go when the gesture ends
 
     def release(self, button):
         self.released.append(button)
@@ -112,6 +113,35 @@ def test_default_gestures(monkeypatch):
     assert m.mouse.clicks == [("right", 1)]                  # Hang Loose = right click
     run(m, t, [(N2, None)] * 25 + [(["victory", None], None)] * 3)
     assert m.mouse.clicks == [("right", 1), ("left", 1)]     # Victory = left click
+
+
+def test_a_short_gesture_is_a_click_and_a_held_gesture_is_a_long_press(monkeypatch):
+    m, t = make(monkeypatch, pinch="left_click")
+    P, N = (["pinch", None], None), (N2, None)
+    run(m, t, [P] * 3 + [N] * 25)                                   # a short gesture: pressed, then let go when it ends
+    assert m.mouse.pressed == ["left"] and m.mouse.released == ["left"] and m.dragging is None
+    run(m, t, [P] * 60)                                             # now the gesture is held for a couple of seconds
+    assert m.mouse.pressed == ["left", "left"] and m.mouse.released == ["left"] and m.dragging == "left"   # still pressed: no release yet
+    run(m, t, [N] * 12)
+    assert m.mouse.released == ["left", "left"] and m.dragging is None
+
+
+def test_right_and_middle_clicks_hold_the_same_way(monkeypatch):
+    m, t = make(monkeypatch, pinch="right_click", fist="middle_click")
+    run(m, t, [(["pinch", None], None)] * 3 + [(N2, None)] * 25 + [(["fist", None], None)] * 3 + [(N2, None)] * 12)
+    assert m.mouse.pressed == ["right", "middle"] and m.mouse.released == ["right", "middle"]
+
+
+def test_a_double_click_stays_instant(monkeypatch):
+    m, t = make(monkeypatch, pinch="double_click")
+    run(m, t, [(["pinch", None], None)] * 30)
+    assert m.mouse.clicks == [("left", 2)] and m.mouse.pressed == []
+
+
+def test_old_drag_setting_still_holds_left(monkeypatch):
+    m, t = make(monkeypatch, pinch="drag")
+    run(m, t, [(["pinch", None], None)] * 10)
+    assert m.dragging == "left"
 
 
 def test_thumbs_up_no_longer_scrolls(monkeypatch):
@@ -214,7 +244,18 @@ def test_a_hotkey_binding_presses_the_keys_once(monkeypatch):
     from pynput.keyboard import Key
     m, t = make(monkeypatch, fist={"type": "hotkey", "keys": "ctrl+c"})
     run(m, t, [(["fist", None], None), (["fist", None], None), (N2, None), (["fist", None], None)])
-    assert m._keyboard.log == [("down", Key.ctrl), ("down", "c"), ("up", "c"), ("up", Key.ctrl)]
+    assert m._keyboard.log == [("down", Key.ctrl), ("down", "c")]                     # pressed once, and held while the gesture lasts
+    run(m, t, [(N2, None)] * 12)
+    assert m._keyboard.log == [("down", Key.ctrl), ("down", "c"), ("up", "c"), ("up", Key.ctrl)]   # let go when it ends
+
+
+def test_held_keys_are_let_go_when_the_control_is_switched_off(monkeypatch):
+    pytest.importorskip("pynput.keyboard")
+    m, t = make(monkeypatch, fist={"type": "hotkey", "keys": "alt+tab"}, thumbs_up="toggle_control")
+    run(m, t, [(["fist", None], None)] * 3)
+    assert len(m._keyboard.log) == 2
+    m.release()
+    assert len(m._keyboard.log) == 4 and not m.held_keys
 
 
 def test_an_invalid_hotkey_binding_is_skipped_without_crashing(monkeypatch):

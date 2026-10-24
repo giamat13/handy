@@ -4,7 +4,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from actions import DEFAULT_BINDINGS, LEGACY_GESTURES
+from actions import DEFAULT_BINDINGS, LEGACY_ACTIONS, LEGACY_GESTURES
 
 APP_DIR = "Handy"          # תיקיית ההגדרות של הגרסה המותקנת
 LEGACY_APP_DIR = "Handy2"  # השם ב-2.0.x: ההגדרות עוברות משם פעם אחת
@@ -132,6 +132,11 @@ def _upgrade(saved):
             value = bindings.pop(old)
             if value != "none":
                 bindings.setdefault(new, value)
+    for g, v in list(bindings.items()):  # גרירה / לחיצה ארוכה נפרדות פסו: לחיצה רגילה שמחזיקים היא לחיצה ארוכה
+        if isinstance(v, str) and v in LEGACY_ACTIONS:
+            bindings[g] = LEGACY_ACTIONS[v]
+        elif isinstance(v, dict) and "hold" in v:
+            v.pop("hold")
     if saved.get("settings_version", 1) < 2:
         # 2.0.x scrolled with thumbs up / down. If the user never changed that, move to the new defaults: thumbs up toggles
         # the control, the scrolling goes to three fingers / rock. A customised mapping is left alone.

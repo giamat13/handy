@@ -161,13 +161,17 @@ def test_simple_binding(be):
     assert r["binding"] == "right_click" and be.cfg["bindings"]["fist"] == "right_click" and be.saved
 
 
-def test_hotkey_binding_is_normalised_and_can_be_a_long_press(be):
+def test_hotkey_binding_is_normalised(be):
     r = be.set_binding({"gesture": "fist", "action": "hotkey", "keys": "shift+ctrl+t"})
     assert r["binding"] == {"type": "hotkey", "keys": "Ctrl+Shift+T"}
     r = be.set_binding({"gesture": "fist", "action": "hotkey", "keys": "ctrl+c", "hold": True})
-    assert r["binding"] == {"type": "hotkey", "keys": "Ctrl+C", "hold": True} and "ארוכה" in r["text"]
-    r = be.set_binding({"gesture": "fist", "action": "hotkey", "keys": "ctrl+c", "hold": "yes"})
-    assert "hold" not in r["binding"]                                       # only a real true counts
+    assert r["binding"] == {"type": "hotkey", "keys": "Ctrl+C"}            # no separate long-press option any more
+
+
+def test_there_is_no_separate_long_press_or_drag_action(be):
+    ids = {a["id"] for a in be.config()["actions"]}
+    assert not ids & {"drag", "hold_right", "hold_middle"} and {"left_click", "right_click", "middle_click"} <= ids
+    assert "hold" not in (ROOT / "web" / "app.js").read_text("utf-8").replace("holder", "")
 
 
 def test_script_binding_is_validated(be, tmp_path):

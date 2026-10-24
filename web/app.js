@@ -27,12 +27,12 @@ const mock = {
       auto_update_check: true, beta_channel: false, control_source: "hand", control_hand: "both", sensitivity: 1.0, smoothing: 0.5 },
     limits: { sensitivity: [0.4, 3.0], smoothing: [0.0, 1.0] },
     actions: [["none", "ללא"], ["left_click", "קליק שמאלי"], ["right_click", "קליק ימני"], ["double_click", "קליק כפול"], ["middle_click", "קליק אמצעי"],
-      ["drag", "גרירה (בזמן המחווה)"], ["hold_right", "לחיצה ארוכה ימנית (בזמן המחווה)"], ["scroll_up", "גלילה למעלה"], ["scroll_down", "גלילה למטה"],
+      ["scroll_up", "גלילה למעלה"], ["scroll_down", "גלילה למטה"],
       ["toggle_control", "הפעלה / כיבוי של השליטה בעכבר"], ["hotkey", "קיצור מקשים…", true], ["script", "הרצת תוכנה / סקריפט…", true]]
       .map(([id, label, param]) => ({ id, label, param: !!param })),
     groups: {
       hand: [["pinch", "צביטה", "none"], ["ok", "אוקיי", "double_click"], ["victory", "ניצחון (V)", "left_click"], ["hang_loose", "היי (Hang Loose)", "right_click"],
-        ["thumbs_up", "לייק", "toggle_control"], ["thumbs_down", "דיסלייק", "none"], ["fist", "אגרוף", { type: "hotkey", keys: "Ctrl+C", hold: false }],
+        ["thumbs_up", "לייק", "toggle_control"], ["thumbs_down", "דיסלייק", "none"], ["fist", "אגרוף", { type: "hotkey", keys: "Ctrl+C" }],
         ["open", "כף פתוחה", "none"], ["point", "הצבעה", "none"], ["three", "שלוש אצבעות", "scroll_up"], ["rock", "רוק", "scroll_down"]]
         .map(([id, name, binding]) => ({ id, name, binding })),
       head: [["wink_left", "קריצה שמאל", "left_click"], ["wink_right", "קריצה ימין", "right_click"]].map(([id, name, binding]) => ({ id, name, binding })),
@@ -40,11 +40,12 @@ const mock = {
     },
   },
   state: { config_version: 1, fps: 30, detect: "ניצחון (V)", enabled: false, camera: true, active_hand: "right", recording: null, rec_result: null,
+    eyes: { right: 0.18, left: 0.82, learning: false },
     update: { status: "idle", progress: 0, message: "", notice: null, info: null } },
 };
 
 function mockText(b) {
-  if (b && typeof b === "object") return b.type === "hotkey" ? `קיצור${b.hold ? " (לחיצה ארוכה)" : ""}: ${b.keys}` : `הרצה: ${b.path}`;
+  if (b && typeof b === "object") return b.type === "hotkey" ? `קיצור: ${b.keys}` : `הרצה: ${b.path}`;
   return mock.config.actions.find((a) => a.id === b)?.label || "ללא";
 }
 
@@ -55,7 +56,7 @@ async function api(path, body) {
     if (body !== undefined && path === "/api/control") mock.state.enabled = body.enabled;
     if (body !== undefined && path === "/api/binding") {
       const g = Object.values(mock.config.groups).flat().find((x) => x.id === body.gesture);
-      if (g) g.binding = body.action === "hotkey" ? { type: "hotkey", keys: body.keys, hold: !!body.hold } : body.action === "script" ? { type: "script", path: body.path, args: body.args || "" } : body.action;
+      if (g) g.binding = body.action === "hotkey" ? { type: "hotkey", keys: body.keys } : body.action === "script" ? { type: "script", path: body.path, args: body.args || "" } : body.action;
     }
     return path === "/api/config" ? mock.config : path === "/api/state" ? mock.state : { ok: true };
   }
@@ -109,12 +110,10 @@ function makeRow(g, extraButtons) {
     if (kind === "hotkey") {
       const keys = el("input"); keys.type = "text"; keys.placeholder = "למשל Ctrl+C, Alt+Tab, Win+D"; keys.value = cur.keys || "";
       keys.setAttribute("aria-label", "קיצור מקשים");
-      const hold = el("input"); hold.type = "checkbox"; hold.checked = !!cur.hold;
-      const holdLabel = el("label"); holdLabel.append(hold, document.createTextNode("לחיצה ארוכה: להחזיק לחוץ כל עוד המחווה פעילה"));
       const ok = el("button", "primary", "שמור");
-      ok.onclick = () => save({ action: "hotkey", keys: keys.value, hold: hold.checked });
+      ok.onclick = () => save({ action: "hotkey", keys: keys.value });
       keys.onkeydown = (ev) => { if (ev.key === "Enter") ok.click(); };
-      extra.append(keys, ok, holdLabel);
+      extra.append(keys, ok, el("span", "muted small", "המקשים לחוצים כל עוד המחווה פעילה"));
     } else if (kind === "script") {
       const path = el("input"); path.type = "text"; path.placeholder = "נתיב מלא לתוכנה או לסקריפט"; path.value = cur.path || "";
       path.setAttribute("aria-label", "נתיב");
@@ -262,6 +261,22 @@ function renderUpdate(u) {
   else { msg.textContent = ""; msg.className = "msg"; }
 }
 
+// --- מצב העיניים: כמה פתוחה כל עין ביחס לפתיחה הרגילה שלה (הקו הוא סף הסגירה) ---
+const EYE_FULL = 1.2;   // רוחב המד = 120% מהרגיל
+const EYE_CLOSED = 0.7;
+function renderEyes(eyes) {
+  for (const side of ["left", "right"]) {
+    const bar = $("#eye-" + side), text = $("#eye-" + side + "-text"), v = eyes ? eyes[side] : null;
+    if (v === null || v === undefined) { bar.style.width = "0"; text.textContent = "—"; bar.classList.remove("closed"); continue; }
+    bar.style.width = Math.min(v / EYE_FULL, 1) * 100 + "%";
+    bar.classList.toggle("closed", v < EYE_CLOSED);
+    text.textContent = Math.round(v * 100) + "%";
+  }
+  $("#eye-note").textContent = !eyes || eyes.learning
+    ? "לומד את העיניים שלך… הסתכל למצלמה עם שתי עיניים פתוחות."
+    : "קריצה מזוהה כשעין אחת יורדת מתחת לקו והשנייה נשארת פתוחה יותר.";
+}
+
 // --- סטטוס שוטף -------------------------------------------------------------
 function renderState(st) {
   const first = !lastState;
@@ -281,6 +296,7 @@ function renderState(st) {
   const rows = config ? Object.values(config.groups).flat() : [];
   const hit = rows.find((r) => live.has(r.name));
   $("#detect-action").textContent = hit ? hit.text : "—";
+  renderEyes(st.eyes);
   renderRecording(st);
   renderUpdate(st.update);
   if (first || !config || st.config_version !== config.version || config.stale) loadConfig().catch(() => {});

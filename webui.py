@@ -27,6 +27,14 @@ CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset
                  ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon"}
 
 
+class _NoEyes:
+    """כשאין גלאי קריצות (בבדיקות): קריאה ריקה."""
+
+    @staticmethod
+    def readout():
+        return {"right": None, "left": None, "learning": True}
+
+
 class ApiError(Exception):
     def __init__(self, message, status=400):
         super().__init__(message)
@@ -116,6 +124,7 @@ class Backend:
             "enabled": self.cfg["control_enabled"],
             "camera": bool(getattr(self.tracker.camera, "opened", True)),
             "active_hand": {0: "left", 1: "right"}.get(slot),
+            "eyes": (getattr(self.tracker, "winker", None) or _NoEyes).readout(),
             "recording": None if rec is None else {"name": rec.name, "mode": rec.mode, "progress": round(rec.progress, 3), "hint": rec.hint},
             "rec_result": self.rec_result,
             "update": self.updates.snapshot(),
@@ -161,8 +170,6 @@ class Backend:
         try:
             if action == "hotkey":
                 value = {"type": "hotkey", "keys": commands.hotkey_text(commands.parse_hotkey(body.get("keys")))}
-                if body.get("hold") is True:
-                    value["hold"] = True  # לחיצה ארוכה: המקשים נשארים לחוצים כל עוד המחווה פעילה
             elif action == "script":
                 value = {"type": "script", **commands.parse_script(body.get("path"), body.get("args"))}
             else:

@@ -12,8 +12,8 @@ The main window shows the live camera with the MediaPipe hand mesh and face land
 - Wink detection (left / right; a normal blink is ignored)
 - Hand signs: pinch, OK, victory (V), hang loose, thumbs up / down, fist, open palm, point, three fingers, rock
 - **Custom gestures**: record your own static hand poses, name them, rename, re-record or delete them
-- Every gesture can be mapped to an action: left / right / middle / double click, drag, scroll up / down, turn the control on / off, **press a key combination** (`Ctrl+C`, `Alt+Tab`, `Win+D`) or **run a program or script** with arguments
-- **Long press**: a gesture can hold the left / right / middle mouse button or a key combination for as long as you make it
+- Every gesture can be mapped to an action: left / right / middle / double click, scroll up / down, turn the control on / off, **press a key combination** (`Ctrl+C`, `Alt+Tab`, `Win+D`) or **run a program or script** with arguments
+- A click (or a key combination) stays pressed for as long as you keep making the gesture: a short gesture is a click, a held gesture is a long press or a drag. There is no separate long-press action
 - **Run in the background**: closing the window can leave the program running (system tray) with the mouse control
 - Hand gestures and head gestures (winks) each have their own tab; the interface is a web page (`web/`), see below
 - Optional **trail** after the controlling point and **cursor coordinates** on the video
@@ -47,7 +47,7 @@ Open **מחוות** (next to Settings), type a name and press **הקלט**. Hold
 
 In Settings choose **קיצור מקשים…** or **הרצת תוכנה / סקריפט…** for a gesture and fill in the value.
 
-- Keys: modifiers `Ctrl`, `Alt`, `Shift`, `Win` (Command on macOS, Super on Linux) plus exactly one key, for example `Ctrl+Shift+T`, `Alt+Tab`, `F5`.
+- Keys stay pressed while the gesture lasts and are released when it ends. Modifiers `Ctrl`, `Alt`, `Shift`, `Win` (Command on macOS, Super on Linux) plus exactly one key, for example `Ctrl+Shift+T`, `Alt+Tab`, `F5`.
 - Programs: a full path and optional arguments. The program is started directly, **never through a shell**, so characters such as `&` or `|` in the arguments are plain text. Paths are checked when you save and again before running. For `.bat` / `.cmd` files, shell characters in the arguments are refused. Two runs of the same kind are at least a second apart.
 
 ## The interface

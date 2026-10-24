@@ -20,6 +20,9 @@ GESTURES = {
 HEAD_GESTURES = {g: GESTURES[g] for g in ("wink_left", "wink_right")}
 HAND_GESTURES = {g: n for g, n in GESTURES.items() if g not in HEAD_GESTURES}
 
+# פעולות ישנות שהפכו ללחיצה רגילה: לחיצה שמחזיקים (המחווה) היא לחיצה ארוכה, אז אין להן יותר פעולה נפרדת
+LEGACY_ACTIONS = {"drag": "left_click", "hold_right": "right_click", "hold_middle": "middle_click"}
+
 # "peace" ו-"victory" הם אותה תנוחה (V). המזהה הישן נשאר רק כדי להעביר הגדרות שמורות מגרסה 2.0
 LEGACY_GESTURES = {"peace": "victory"}
 
@@ -29,9 +32,6 @@ ACTIONS = {
     "right_click": "קליק ימני",
     "double_click": "קליק כפול",
     "middle_click": "קליק אמצעי",
-    "drag": "גרירה (בזמן המחווה)",
-    "hold_right": "לחיצה ארוכה ימנית (בזמן המחווה)",
-    "hold_middle": "לחיצה ארוכה אמצעית (בזמן המחווה)",
     "scroll_up": "גלילה למעלה",
     "scroll_down": "גלילה למטה",
     "toggle_control": "הפעלה / כיבוי של השליטה בעכבר",
@@ -71,7 +71,7 @@ def binding_text(binding):
     """טקסט קצר להצגה בתפריט המיפוי."""
     kind = binding_kind(binding)
     if kind == "hotkey":
-        return f"קיצור{' (לחיצה ארוכה)' if binding.get('hold') else ''}: {binding.get('keys', '')}"
+        return f"קיצור: {binding.get('keys', '')}"
     if kind == "script":
         return f"הרצה: {binding.get('path', '')}"
     return ACTIONS.get(kind, ACTIONS["none"])

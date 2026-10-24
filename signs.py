@@ -117,8 +117,9 @@ class WinkDetector:
 
     CLOSED = 0.17
     OPEN = 0.21
-    CLOSE_RATIO = 0.70
-    OPEN_RATIO = 0.85
+    CLOSE_RATIO = 0.70  # עין סגורה: מתחת ל-70% מהפתיחה הרגילה שלה
+    OTHER_MIN = 0.60    # העין השנייה בקריצה אמיתית מצטמצמת קצת (קשה לקרוץ בלי זה), אבל לא מתחת ל-60% מהרגיל
+    GAP = 0.25          # והיא חייבת להיות פתוחה יותר מהסגורה בלפחות רבע מהפתיחה הרגילה. מצמוץ (שתיהן סגורות) לא עונה על זה
     WARMUP = 20      # פריימים עד שיש בסיס
     WINDOW = 120     # כמה פריימים אחרונים מרכיבים את הבסיס
     MIN_BASE = 0.12  # בסיס נמוך מזה = העין לא נמדדת באמינות (פנים רחוקות / מוסתרות), אז לא סומכים עליו
@@ -126,7 +127,8 @@ class WinkDetector:
     def __init__(self, frames=3):
         self.stab = Stabilizer(frames)
         self._hist = (deque(maxlen=self.WINDOW), deque(maxlen=self.WINDOW))  # (ימין, שמאל)
-        self.ears = None  # (ימין, שמאל) האחרונים, לאבחון
+        self.ears = None    # (ימין, שמאל) האחרונים, לאבחון
+        self.ratios = None  # (ימין, שמאל) כחלק מהפתיחה הרגילה של כל עין (1.0 = רגיל), או None כל עוד הגלאי עוד לא למד
 
     def _base(self, hist):
         return float(np.percentile(hist, 85)) if len(hist) >= self.WARMUP else None
@@ -140,15 +142,27 @@ class WinkDetector:
         self._hist[0].append(r)
         self._hist[1].append(l)
         br, bl = self._base(self._hist[0]), self._base(self._hist[1])
-        if br is not None and bl is not None and min(br, bl) >= self.MIN_BASE:
-            r_closed, r_open = r < br * self.CLOSE_RATIO, r > br * self.OPEN_RATIO
-            l_closed, l_open = l < bl * self.CLOSE_RATIO, l > bl * self.OPEN_RATIO
-        else:
-            r_closed, r_open = r < self.CLOSED, r > self.OPEN
-            l_closed, l_open = l < self.CLOSED, l > self.OPEN
         state = None
-        if r_closed and l_open:
-            state = "wink_right"
-        elif l_closed and r_open:
-            state = "wink_left"
+        if br is not None and bl is not None and min(br, bl) >= self.MIN_BASE:
+            rr, rl = r / br, l / bl
+            self.ratios = (rr, rl)
+            if self._wink(rr, rl):
+                state = "wink_right"
+            elif self._wink(rl, rr):
+                state = "wink_left"
+        else:
+            self.ratios = None
+            if r < self.CLOSED and l > self.OPEN:
+                state = "wink_right"
+            elif l < self.CLOSED and r > self.OPEN:
+                state = "wink_left"
         return self.stab.update(state)
+
+    def _wink(self, closed, other):
+        return closed < self.CLOSE_RATIO and other > self.OTHER_MIN and other - closed > self.GAP
+
+    def readout(self):
+        """לממשק: כמה פתוחה כל עין (1.0 = הפתיחה הרגילה שלה), ואם הגלאי עוד לומד."""
+        if self.ratios is None:
+            return {"right": None, "left": None, "learning": True}
+        return {"right": round(self.ratios[0], 2), "left": round(self.ratios[1], 2), "learning": False}

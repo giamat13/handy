@@ -9,14 +9,10 @@ import commands
 
 log = logging.getLogger(__name__)
 
-_CLICKS = {
-    "left_click": ("left", 1),
-    "right_click": ("right", 1),
-    "double_click": ("left", 2),
-    "middle_click": ("middle", 1),
-}
-# לחיצה ארוכה: הכפתור נלחץ כשהמחווה מתחילה ומשתחרר כשהיא נגמרת ("drag" היא אותה לחיצה ארוכה שמאלית)
-_HOLDS = {"drag": "left", "hold_right": "right", "hold_middle": "middle"}
+# לחיצה רגילה = הכפתור נלחץ כשהמחווה מתחילה ומשתחרר כשהיא נגמרת: מחווה קצרה היא קליק, ומחווה שמחזיקים היא לחיצה ארוכה
+# (גם גרירה). אין פעולה נפרדת ללחיצה ארוכה. "drag" נשאר רק כשם ישן שבהגדרות ישנות.
+_BUTTONS = {"left_click": "left", "right_click": "right", "middle_click": "middle", "drag": "left"}
+_CLICKS = {"double_click": ("left", 2)}  # קליק כפול הוא תמיד מיידי
 _SCROLL = {"scroll_up": 1, "scroll_down": -1}
 _SCROLL_INTERVAL = 0.08
 _COOLDOWN = 0.7  # בין כל שני קליקים, מכל מחווה: מונע קליק כפול ממחווה שמהבהבת
@@ -254,18 +250,22 @@ class MouseController:
             return
         if only_toggle:
             return
-        if action in _CLICKS:
+        if action in _BUTTONS or action in _CLICKS:
             if now - self.last_click < _COOLDOWN:
                 return
-            self.last_click = now
-            self.freeze_until = now + _FREEZE
-            button, count = _CLICKS[action]
-            self.mouse.click(button, count)
-        elif action in _HOLDS:
-            button = _HOLDS[action]
-            if gesture not in self.held and button not in self.held.values():
-                self.held[gesture] = button
+            if action in _BUTTONS:
+                button = _BUTTONS[action]
+                if gesture in self.held or button in self.held.values():
+                    return
+                self.last_click = now
+                self.freeze_until = now + _FREEZE
+                self.held[gesture] = button       # משתחרר כשהמחווה נגמרת (_release_gesture)
                 self.mouse.press(button)
+            else:
+                self.last_click = now
+                self.freeze_until = now + _FREEZE
+                button, count = _CLICKS[action]
+                self.mouse.click(button, count)
         elif action in ("hotkey", "script"):
             if now - self.last_command < _COMMAND_COOLDOWN:
                 return
@@ -282,11 +282,10 @@ class MouseController:
         try:
             if binding["type"] == "hotkey":
                 tokens = commands.parse_hotkey(binding.get("keys"))
-                if binding.get("hold") is True and gesture is not None:
-                    if gesture not in self.held_keys:  # לחיצה ארוכה: נשארים לחוצים עד שהמחווה נגמרת
-                        self.held_keys[gesture] = commands.hold_hotkey(self._keyboard_controller(), tokens)
-                else:
+                if gesture is None:
                     commands.press_hotkey(self._keyboard_controller(), tokens)
+                elif gesture not in self.held_keys:  # כמו כפתור עכבר: המקשים לחוצים כל עוד המחווה פעילה, ומשתחררים כשהיא נגמרת
+                    self.held_keys[gesture] = commands.hold_hotkey(self._keyboard_controller(), tokens)
             else:
                 self._launcher(binding)
         except Exception as e:  # קובץ שנמחק, מקש לא תקין, אין הרשאה: מדלגים ולא קורסים
