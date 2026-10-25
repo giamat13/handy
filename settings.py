@@ -110,7 +110,8 @@ DEFAULTS = {
     "show_pinch_gauge": True,  # מד המרחק בין האגודל לאצבע
     "show_ripples": True,      # גל שמתרחב בנקודת כל קליק
     "control_enabled": False,  # העכבר לא זז עד שהמשתמש מדליק (או F8)
-    "control_source": "hand",  # "hand" או "head"
+    "control_source": "hand",  # "hand", "head" או "eyes"
+    "gaze_model": None,        # הכיול של המבט (gaze.GazeMap.to_dict), או None עד שמכוילים
     "control_hand": "both",    # "right", "left" או "both": איזו יד שולטת
     "run_in_background": False,  # סגירת החלון משאירה את התוכנה רצה ברקע (מגש המערכת) עם השליטה בעכבר
     "auto_update_check": True,

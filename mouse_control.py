@@ -8,6 +8,7 @@ from collections import deque
 
 import actions
 import commands
+import gaze
 from perf import RateMeter
 
 log = logging.getLogger(__name__)
@@ -165,6 +166,8 @@ class MouseController:
         self.held_keys = {}        # מחווה -> מקשים שהיא מחזיקה לחוצים (קיצור בלחיצה ארוכה)
         self.head_center = None
         self._last_point = None
+        self.gaze_map = gaze.GazeMap.from_dict(cfg.get("gaze_model"))   # הכיול של המבט (gaze.py), או None: בלי כיול העיניים לא מזיזות
+        self._screen = None        # מצב העיניים: המיקום במסך (0..1) שהכיול נתן לפריים הזה
         self.point = None          # הנקודה השולטת בקואורדינטות הפריים (לשובל), או None
         self.active_slot = None    # איזו יד מזיזה את הסמן עכשיו (0 שמאל, 1 ימין), או None
         self.active_slot_prev = None
@@ -198,9 +201,10 @@ class MouseController:
             self._keyboard = Controller()
         return self._keyboard
 
-    def _point(self, hands, face, labels):
+    def _point(self, hands, face, labels, gaze_feat=None):
         src = self.cfg["control_source"]
         self.active_slot = None
+        self._screen = None
         if src == "hand":
             allowed = self.allowed_slots()
             slots = labels if labels is not None else list(range(len(hands)))
@@ -215,17 +219,23 @@ class MouseController:
             p = hand[[0, 5, 9, 13, 17]].mean(axis=0)
         elif src == "head" and face is not None:
             p = face[1]  # קצה האף
+        elif src == "eyes" and face is not None and gaze_feat is not None and self.gaze_map is not None:
+            self._screen = self.gaze_map.apply(gaze_feat)   # המיקום במסך הוא מהכיול; p (מרכז האישונים) משמש לתצוגה בלבד
+            p = face[list(gaze.IRIS_CENTERS)].mean(axis=0)
         else:
             return None, src
         self._last_point = p
         return p, src
 
     def _move(self, p, src, now):
-        sens = max(self.cfg["sensitivity"], 0.1)
-        rx, ry = _RANGE[src]
-        cx, cy = (self.head_center if src == "head" and self.head_center else _CENTER[src])
-        nx = (p[0] - cx) / (rx / sens) * 0.5 + 0.5
-        ny = (p[1] - cy) / (ry / sens) * 0.5 + 0.5
+        if src == "eyes":
+            nx, ny = p   # כבר במסך (0..1), מהכיול ב-gaze.py
+        else:
+            sens = max(self.cfg["sensitivity"], 0.1)
+            rx, ry = _RANGE[src]
+            cx, cy = (self.head_center if src == "head" and self.head_center else _CENTER[src])
+            nx = (p[0] - cx) / (rx / sens) * 0.5 + 0.5
+            ny = (p[1] - cy) / (ry / sens) * 0.5 + 0.5
         nx, ny = min(max(nx, 0.0), 1.0), min(max(ny, 0.0), 1.0)
         # smoothing 0..1 -> min_cutoff 4..0.4
         cutoff = 4.0 - 3.6 * min(max(self.cfg["smoothing"], 0.0), 1.0)
@@ -286,8 +296,9 @@ class MouseController:
             self.mouse.position = pos
             self.glide_rate.tick()
 
-    def update(self, hands, face, signs, labels=None):
-        """נקרא מחוט המעקב אחרי כל פריים. signs לפי משבצות (0 שמאל, 1 ימין); labels = משבצת לכל יד ב-hands (אם חסר: לפי הסדר)."""
+    def update(self, hands, face, signs, labels=None, gaze_feat=None):
+        """נקרא מחוט המעקב אחרי כל פריים. signs לפי משבצות (0 שמאל, 1 ימין); labels = משבצת לכל יד ב-hands (אם חסר: לפי הסדר).
+        gaze_feat = מדידת המבט של הפריים (gaze.features), או None."""
         now = time.perf_counter()
         allowed = self.allowed_slots()
         # מחוות של היד השולטת נחשבות; מחוות הראש (HEAD_SLOTS) לא קשורות ליד ולכן תמיד
@@ -295,7 +306,7 @@ class MouseController:
         raw = {g for i, s in enumerate(signs) if s and (i in allowed or i in HEAD_SLOTS)
                for g in (s if isinstance(s, tuple) else (s,))}
 
-        p, src = self._point(hands, face, labels)
+        p, src = self._point(hands, face, labels, gaze_feat)
         self.point = p
 
         if not self.cfg["control_enabled"]:
@@ -305,7 +316,7 @@ class MouseController:
             return
 
         if p is not None and now >= self.freeze_until:
-            self._move(p, src, now)
+            self._move(self._screen if src == "eyes" else p, src, now)
         elif p is None:
             self.fx.reset(), self.fy.reset()
         self._gestures(raw, now, only_toggle=False)

@@ -32,7 +32,7 @@ class RecordingController:
     def allowed_slots(self):
         return {0, 1}
 
-    def update(self, hands, face, signs, labels=None):
+    def update(self, hands, face, signs, labels=None, gaze_feat=None):
         self.calls.append((hands, signs, labels))
 
 

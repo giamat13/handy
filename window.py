@@ -36,12 +36,28 @@ def _browser(url):
         pass
 
 
+class WindowApi:
+    """מה שהדף קורא דרך window.pywebview.api. רק מסך מלא: כשהדף נכנס למסך מלא, WebView2 מציג את התוכן על כל אזור החלון
+    אבל לא מגדיל את החלון עצמו. השמות שמתחילים ב-_ לא נחשפים לדף."""
+
+    def __init__(self):
+        self._window = None
+        self._full = False
+
+    def set_fullscreen(self, on):
+        if self._window is not None and bool(on) != self._full:
+            self._window.toggle_fullscreen()
+            self._full = bool(on)
+        return self._full
+
+
 def show(url):
     """רץ בתהליך הבן: חלון pywebview עד שסוגרים אותו (חוסם). בלי pywebview או אם הוא נכשל: דפדפן ברירת המחדל."""
     try:
         import webview
 
-        webview.create_window(TITLE, url, width=WINDOW_SIZE[0], height=WINDOW_SIZE[1])
+        api = WindowApi()
+        api._window = webview.create_window(TITLE, url, width=WINDOW_SIZE[0], height=WINDOW_SIZE[1], js_api=api)
         webview.start()   # private_mode: בלי אחסון קבוע, אז גם אין פרופיל על הדיסק
     except Exception:
         _browser(url)

@@ -650,3 +650,19 @@ def test_without_pywebview_the_default_browser_is_used(monkeypatch):
     monkeypatch.setattr(window.webbrowser, "open", lambda u: opened.append(u))
     window.show("http://127.0.0.1:1/")
     assert opened == ["http://127.0.0.1:1/"]
+
+
+def test_the_page_turns_the_window_fullscreen_on_and_off_only_when_it_changes():
+    class FakeWindow:
+        def __init__(self):
+            self.toggles = 0
+
+        def toggle_fullscreen(self):
+            self.toggles += 1
+
+    api = window.WindowApi()
+    assert api.set_fullscreen(True) is False   # no window yet: nothing happens
+    api._window = FakeWindow()
+    assert api.set_fullscreen(True) is True and api._window.toggles == 1
+    assert api.set_fullscreen(True) is True and api._window.toggles == 1   # already fullscreen
+    assert api.set_fullscreen(False) is False and api._window.toggles == 2

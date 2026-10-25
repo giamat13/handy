@@ -98,7 +98,11 @@
 
     <div class="tab" id="tab-settings">
       <h2>שליטה</h2>
-      <div class="field"><span>מזיזים את הסמן עם</span><div class="seg" data-key="control_source" data-options='[["hand","יד"],["head","ראש"]]'></div></div>
+      <div class="field"><span>מזיזים את הסמן עם</span><div class="seg" data-key="control_source" data-options='[["hand","יד"],["head","הזזת ראש"],["eyes","הסתכלות"]]'></div></div>
+      <div class="field" id="gaze-field" hidden><span>כיול המבט</span>
+        <div class="line"><button id="gaze-calib" class="primary">כייל מבט</button><span id="gaze-msg" class="muted small"></span></div>
+        <p class="muted small">הכיול עובר למסך מלא. מסתכלים על תשע נקודות, אחת אחרי השנייה. כדאי לשבת במקום הרגיל ולהחזיק את הראש יחסית קבוע.</p>
+      </div>
       <div class="field"><span>איזו יד שולטת</span><div class="seg" data-key="control_hand" data-options='[["right","ימין"],["left","שמאל"],["both","שתיהן"]]'></div></div>
       <div class="field"><span>רגישות <b id="v-sensitivity"></b></span><input type="range" data-key="sensitivity" step="0.05" aria-label="רגישות"></div>
       <div class="field"><span>החלקה <b id="v-smoothing"></b></span><input type="range" data-key="smoothing" step="0.05" aria-label="החלקה"></div>
@@ -146,6 +150,11 @@
     </div>
   </section>
 </main>
+<div id="gaze-overlay" class="gaze-overlay" hidden>
+  <div id="gaze-dot" class="gaze-dot"></div>
+  <p id="gaze-text"></p>
+  <button id="gaze-cancel">בטל</button>
+</div>
 <script src="app.js"></script>
 </body>
 </html>

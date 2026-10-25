@@ -395,9 +395,12 @@ function renderState(st) {
   if (config) {
     const s = config.settings;
     $("#hand-chip").hidden = false;
-    $("#hand-line").textContent = s.control_source !== "hand" ? "הסמן זז לפי הראש"
+    $("#hand-line").textContent = s.control_source === "eyes" ? "הסמן זז לפי ההסתכלות"
+      : s.control_source !== "hand" ? "הסמן זז לפי הזזת הראש"
       : st.active_hand ? `יד ${HANDS[st.active_hand]} · שולטת` : `יד שולטת: ${HANDS[s.control_hand]}`;
+    $("#gaze-field").hidden = s.control_source !== "eyes";
   }
+  renderGaze(st.gaze);
   const liveHand = new Set(detectHand.split(" + ")), liveHead = new Set(detectHead.split(" + "));
   for (const row of $$(".row")) row.classList.toggle("live", liveHand.has(row.dataset.name) || liveHead.has(row.dataset.name));
   // הפעולה של המחווה המזוהה (הראשונה), בכרטיס של כל סוג מתחת לווידאו
@@ -410,6 +413,34 @@ function renderState(st) {
   renderUpdate(st.update);
   if (first || !config || st.config_version !== config.version || config.stale) loadConfig().catch(() => {});
   lastState = st;
+}
+
+// כיול המבט: בזמן הכיול מציגים את הנקודה הבאה על כל המסך, והסטטוס נשאר בשורת הכיול
+let gazeShown = false;   // הכיול הוצג בפועל (כדי לצאת ממסך מלא רק כשהוא נגמר)
+
+// בחלון pywebview מגדילים את החלון דרך התוכנה. בדפדפן מבקשים מסך מלא מהדפדפן, והוא מאשר רק מתוך לחיצה (לכן נקרא מהכפתור ישר).
+// אם לא אושר, הכיול רץ בתוך החלון
+async function gazeFullscreen(on) {
+  try {
+    if (window.pywebview?.api) await window.pywebview.api.set_fullscreen(on);
+    else if (on) await document.documentElement.requestFullscreen();
+    else if (document.fullscreenElement) await document.exitFullscreen();
+  } catch (e) { /* לא אושר: נשארים בחלון */ }
+}
+
+function renderGaze(g) {
+  if (!g) return;
+  const c = g.calib;
+  $("#gaze-overlay").hidden = !c.active;
+  if (c.active) gazeShown = true;
+  else if (gazeShown) { gazeShown = false; gazeFullscreen(false); }
+  if (c.active) {
+    $("#gaze-dot").style.left = `${c.x * 100}%`;
+    $("#gaze-dot").style.top = `${c.y * 100}%`;
+    $("#gaze-text").textContent = `הסתכל על הנקודה (${c.index + 1} מתוך ${c.total})`;
+  }
+  $("#gaze-msg").textContent = c.status === "failed" ? "הכיול נכשל, נסה שוב" : c.status === "done" ? "הכיול נשמר"
+    : g.calibrated ? "מכוייל" : "לא מכוייל";
 }
 
 let failures = 0;
@@ -455,6 +486,11 @@ function setupActions() {
     };
     $(`#rec-cancel-${kind}`).onclick = () => api("/api/custom", { op: "cancel" });
   }
+  $("#gaze-calib").onclick = () => {
+    gazeFullscreen(true);   // בסינכרון עם הלחיצה, אחרת הדפדפן לא מאשר
+    api("/api/gaze", { action: "start" }).catch((e) => { gazeFullscreen(false); $("#gaze-msg").textContent = e.message; });
+  };
+  $("#gaze-cancel").onclick = () => api("/api/gaze", { action: "cancel" }).catch(() => {});
   $("#check-update").onclick = () => api("/api/update", { op: "check" });
   $("#quit").onclick = () => { if (confirm("לצאת מהתוכנה? השליטה בעכבר תיפסק.")) api("/api/quit", {}).catch(() => {}); };
   // סגירת החלון: אם ההרצה ברקע דולקת התוכנה ממשיכה, אחרת היא יוצאת (השרת מחליט)

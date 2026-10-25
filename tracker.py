@@ -7,6 +7,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
+import gaze
 import head_pose
 from eye_gestures import EyeGestures
 from face_expressions import ExpressionGestures
@@ -37,6 +38,7 @@ class Tracker:
         self.eyes = EyeGestures()         # קריצה ומצמוץ ארוך מתוך פתיחות העיניים
         self.hand_motion = HandMotions()  # החלקה, עיגול ונפנוף של יד פתוחה
         self.expressions = ExpressionGestures()   # פה פתוח, חיוך וגבות מורמות
+        self.gaze_calib = gaze.GazeCalibration()  # כיול המבט: אוסף דגימות כשהממשק מציג נקודה (gaze.py)
         self.recorder = None  # Recorder פעיל בזמן הקלטת מחווה: אז לא מפעילים פעולות
         self.sign_stabs = [Stabilizer(3), Stabilizer(3)]
         self.hands = mp.solutions.hands.Hands(
@@ -151,8 +153,10 @@ class Tracker:
                 self.head_tilt.reset()
                 self.head_lean.reset()
                 self.eyes.reset()
+            gaze_feat = gaze.features(face_px, pose)   # None כשהעיניים סגורות או אין פנים
+            self.gaze_calib.add(gaze_feat, time.perf_counter())
             if self.controller is not None:
-                self.controller.update(hands, face, signs, slots)
+                self.controller.update(hands, face, signs, slots, gaze_feat)
             point = self.controller.point if self.controller is not None else None
             now = time.perf_counter()
             self.logic_ms.add(now - t_logic)

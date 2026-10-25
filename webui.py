@@ -23,7 +23,7 @@ BYE_GRACE = 3.0         # אחרי bye מחכים רגע: רענון של הדף
 
 BOOL_KEYS = ("show_hand_mesh", "show_face_mesh", "show_trail", "show_coords", "show_head_axes", "show_pinch_gauge", "show_ripples",
              "run_in_background", "auto_update_check", "beta_channel")
-CHOICES = {"control_source": ("hand", "head"), "control_hand": ("right", "left", "both")}
+CHOICES = {"control_source": ("hand", "head", "eyes"), "control_hand": ("right", "left", "both")}
 RANGES = {"sensitivity": (0.4, 3.0), "smoothing": (0.0, 1.0)}
 CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8",
                  ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon"}
@@ -77,10 +77,17 @@ class Backend:
         return False
 
     def tick(self):
-        """מהלולאה הראשית: משלים הקלטה שהסתיימה גם כשאין דף פתוח."""
+        """מהלולאה הראשית: משלים הקלטה שהסתיימה גם כשאין דף פתוח, ושומר כיול מבט שהסתיים."""
         rec = self.rec
         if rec is not None and rec.done:
             self._finish_recording(rec)
+        calib = self._gaze_calib()
+        model = calib.take_result() if calib is not None else None
+        if model is not None:
+            self.mouse.gaze_map = model
+            self.cfg["gaze_model"] = model.to_dict()
+            self.save(self.cfg)
+            self._changed()
 
     # --- קריאה ---
     def names(self):
@@ -155,8 +162,31 @@ class Backend:
             "recording": None if rec is None else {"name": rec.name, "mode": rec.mode, "kind": rec.kind, "progress": round(rec.progress, 3),
                                                    "hint": rec.hint},
             "rec_result": self.rec_result,
+            "gaze": self._gaze_state(),
             "update": self.updates.snapshot(),
         }
+
+    def _gaze_calib(self):
+        return getattr(self.tracker, "gaze_calib", None)   # בלי מעקב מבט (בבדיקות) אין כיול
+
+    def _gaze_state(self):
+        calib = self._gaze_calib()
+        snap = calib.snapshot() if calib is not None else {"active": False, "status": "idle"}
+        return {"calibrated": self.cfg.get("gaze_model") is not None, "calib": snap}
+
+    def gaze(self, body):
+        """כיול המבט: התחלה או ביטול. הנקודות מוצגות בדף, והשמירה נעשית ב-tick."""
+        calib = self._gaze_calib()
+        if calib is None:
+            raise ApiError("אין מעקב מבט")
+        action = body.get("action")
+        if action == "start":
+            calib.start()
+        elif action == "cancel":
+            calib.cancel()
+        else:
+            raise ApiError("פעולה לא מוכרת")
+        return {"ok": True}
 
     # --- כתיבה ---
     def _changed(self):
@@ -432,6 +462,7 @@ class Handler(BaseHTTPRequestHandler):
         be = self.be
         routes = {"/api/set": be.set_value, "/api/control": be.set_control, "/api/binding": be.set_binding,
                   "/api/custom": be.custom, "/api/update": be.update, "/api/pick-file": be.pick_file, "/api/quit": be.quit,
+                  "/api/gaze": be.gaze,
                   "/api/bye": lambda b: (be.bye(), {"ok": True})[1]}
         handler = routes.get(url.path)
         if handler is None:

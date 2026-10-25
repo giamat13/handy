@@ -41,6 +41,11 @@ main { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28p
 .hand-chip { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: rgba(15, 16, 14, .78); color: #ecefe6; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13px; white-space: nowrap; }
 .hand-chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: block; }
 .overlay-msg { position: absolute; inset: 0; display: grid; place-items: center; font-size: 20px; background: rgba(0, 0, 0, .65); color: #fff; }
+.gaze-overlay { position: fixed; inset: 0; z-index: 50; background: var(--bg); }
+.gaze-overlay p { position: absolute; top: 16px; inset-inline: 0; margin: 0; text-align: center; font-size: 18px; }
+.gaze-overlay button { position: absolute; bottom: 16px; inset-inline-start: 16px; }
+.gaze-dot { position: absolute; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 10px rgba(198, 240, 107, .2); transition: left .25s ease, top .25s ease; }
 
 .detect-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 20px; display: flex; align-items: center; gap: 16px; }
 .detect-card .grow { flex: 1; min-width: 0; }
