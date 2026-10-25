@@ -396,9 +396,10 @@ function renderState(st) {
     const s = config.settings;
     $("#hand-chip").hidden = false;
     $("#hand-line").textContent = s.control_source === "eyes" ? "הסמן זז לפי ההסתכלות"
+      : s.control_source === "pupils" ? "הסמן זז לפי האישונים"
       : s.control_source !== "hand" ? "הסמן זז לפי הזזת הראש"
       : st.active_hand ? `יד ${HANDS[st.active_hand]} · שולטת` : `יד שולטת: ${HANDS[s.control_hand]}`;
-    $("#gaze-field").hidden = s.control_source !== "eyes";
+    $("#gaze-field").hidden = !["eyes", "pupils"].includes(s.control_source);
   }
   renderGaze(st.gaze);
   const liveHand = new Set(detectHand.split(" + ")), liveHead = new Set(detectHead.split(" + "));

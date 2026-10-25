@@ -23,7 +23,7 @@ BYE_GRACE = 3.0         # אחרי bye מחכים רגע: רענון של הדף
 
 BOOL_KEYS = ("show_hand_mesh", "show_face_mesh", "show_trail", "show_coords", "show_head_axes", "show_pinch_gauge", "show_ripples",
              "run_in_background", "auto_update_check", "beta_channel")
-CHOICES = {"control_source": ("hand", "head", "eyes"), "control_hand": ("right", "left", "both")}
+CHOICES = {"control_source": ("hand", "head", "eyes", "pupils"), "control_hand": ("right", "left", "both")}
 RANGES = {"sensitivity": (0.4, 3.0), "smoothing": (0.0, 1.0)}
 CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8",
                  ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon"}
@@ -82,10 +82,10 @@ class Backend:
         if rec is not None and rec.done:
             self._finish_recording(rec)
         calib = self._gaze_calib()
-        model = calib.take_result() if calib is not None else None
-        if model is not None:
-            self.mouse.gaze_map = model
-            self.cfg["gaze_model"] = model.to_dict()
+        models = calib.take_result() if calib is not None else None
+        if models is not None:
+            self.mouse.gaze_maps.update(models)
+            self.cfg["gaze_models"] = {name: m.to_dict() for name, m in models.items()}
             self.save(self.cfg)
             self._changed()
 
@@ -172,7 +172,7 @@ class Backend:
     def _gaze_state(self):
         calib = self._gaze_calib()
         snap = calib.snapshot() if calib is not None else {"active": False, "status": "idle"}
-        return {"calibrated": self.cfg.get("gaze_model") is not None, "calib": snap}
+        return {"calibrated": self.cfg.get("gaze_models") is not None, "calib": snap}
 
     def gaze(self, body):
         """כיול המבט: התחלה או ביטול. הנקודות מוצגות בדף, והשמירה נעשית ב-tick."""

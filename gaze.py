@@ -4,7 +4,8 @@
 לאורך העין (מבחוץ פנימה) ולניצב לו. כך נטיית הראש במישור לא משנה את המדידה, והיא מנורמלת לרוחב העין, לכן לא תלויה במרחק מהמצלמה.
 
 המדידה לבד לא מספיקה, כי גם סיבוב הראש מזיז את האישון ביחס לפינות. לכן הכיול הוא רגרסיה לינארית על
-[1, dx, dy, yaw, pitch] (זוויות במעלות), והתוצאה היא נקודה במסך (0..1 לכל ציר). המשתמש מסתכל על תשע נקודות שהממשק מציג."""
+[1, dx, dy, yaw, pitch] (זוויות במעלות) למצב "הסתכלות", ועל [1, dx, dy] למצב "אישונים" שמתעלם מזווית הראש. שני המיפויים
+נוצרים מאותן דגימות, והתוצאה היא נקודה במסך (0..1 לכל ציר). המשתמש מסתכל על תשע נקודות שהממשק מציג."""
 import threading
 
 import numpy as np
@@ -16,7 +17,9 @@ from eye_gestures import TURNED, openness
 _EYES = ((468, (33, 133), (159, 145)), (473, (263, 362), (386, 374)))
 IRIS_CENTERS = (468, 473)
 MIN_OPEN = 0.12      # פתיחות מתחתיה העין סגורה (כמו ב-eye_gestures): האישון מוסתר, ולכן לא מודדים
-N_COEFS = 5          # קבוע + dx, dy, yaw, pitch
+EYES = (0, 1, 2, 3)  # אילו עמודות של features לקחת: dx, dy, yaw, pitch (מצב "הסתכלות")
+PUPILS = (0, 1)      # dx, dy בלבד (מצב "אישונים": הראש לא משפיע על הסמן)
+MODELS = {"eyes": EYES, "pupils": PUPILS}   # לכל מצב מיפוי משלו, מאותו כיול
 
 # תשע נקודות במסך (0..1), שורה אחרי שורה: פינות, מרכז ואמצע הצלעות
 TARGETS = tuple((x, y) for y in (0.1, 0.5, 0.9) for x in (0.1, 0.5, 0.9))
@@ -59,45 +62,47 @@ def features(face_px, pose):
 
 
 class GazeMap:
-    """ממפה מדידת מבט לנקודה במסך. wx / wy = המקדמים לכל ציר (N_COEFS לכל אחד)."""
+    """ממפה מדידת מבט לנקודה במסך. cols = העמודות של המדידה (EYES או PUPILS), wx / wy = מקדם לקבוע ולכל עמודה."""
 
-    def __init__(self, wx, wy):
+    def __init__(self, wx, wy, cols=EYES):
         self.wx = np.asarray(wx, np.float64)
         self.wy = np.asarray(wy, np.float64)
+        self.cols = list(cols)
 
     @staticmethod
-    def fit(feats, targets):
+    def fit(feats, targets, cols=EYES):
         """feats: שורה לכל דגימה (מ-features), targets: הנקודה במסך לכל דגימה. None אם הפתרון לא תקין."""
-        X = np.hstack([np.ones((len(feats), 1)), np.asarray(feats, np.float64)])
+        X = np.hstack([np.ones((len(feats), 1)), np.asarray(feats, np.float64)[:, list(cols)]])
         T = np.asarray(targets, np.float64)
         wx = np.linalg.lstsq(X, T[:, 0], rcond=None)[0]
         wy = np.linalg.lstsq(X, T[:, 1], rcond=None)[0]
         if not (np.all(np.isfinite(wx)) and np.all(np.isfinite(wy))):
             return None
-        return GazeMap(wx, wy)
+        return GazeMap(wx, wy, cols)
 
     def apply(self, feat):
         """(x, y) במסך, בין 0 ל-1."""
-        x = np.concatenate(([1.0], feat))
+        x = np.concatenate(([1.0], np.asarray(feat, np.float64)[self.cols]))
         return tuple(min(max(float(v), 0.0), 1.0) for v in (x @ self.wx, x @ self.wy))
 
     def to_dict(self):
         return {"wx": self.wx.tolist(), "wy": self.wy.tolist()}
 
     @staticmethod
-    def from_dict(d):
-        """מההגדרות השמורות. None אם חסר או לא תקין (אז צריך לכייל שוב)."""
+    def from_dict(d, cols=EYES):
+        """מההגדרות השמורות, למצב cols. None אם חסר או לא תקין (אז צריך לכייל שוב)."""
         try:
             wx, wy = (np.asarray(d[k], np.float64) for k in ("wx", "wy"))
         except (KeyError, TypeError, ValueError):
             return None
-        if wx.shape != (N_COEFS,) or wy.shape != (N_COEFS,) or not (np.all(np.isfinite(wx)) and np.all(np.isfinite(wy))):
+        n = len(cols) + 1
+        if wx.shape != (n,) or wy.shape != (n,) or not (np.all(np.isfinite(wx)) and np.all(np.isfinite(wy))):
             return None
-        return GazeMap(wx, wy)
+        return GazeMap(wx, wy, cols)
 
 
 class GazeCalibration:
-    """הכיול: הממשק מציג נקודה, המשתמש מסתכל עליה, והמעקב אוסף דגימות. אחרי כל התשע מתאימים GazeMap.
+    """הכיול: הממשק מציג נקודה, המשתמש מסתכל עליה, והמעקב אוסף דגימות. אחרי כל התשע מתאימים GazeMap לכל מצב.
     add נקרא מחוט המעקב בכל פריים; השאר (start / cancel / snapshot / take_result) מהשרת."""
 
     def __init__(self):
@@ -139,16 +144,17 @@ class GazeCalibration:
                 self._finish()
 
     def _finish(self):
-        """בתוך הנעילה. מתאים את המיפוי ומעדכן את הסטטוס."""
+        """בתוך הנעילה. מתאים מיפוי לכל מצב מאותן דגימות, ומעדכן את הסטטוס."""
         try:
-            self._result = GazeMap.fit(self._feats, self._targets)
+            maps = {name: GazeMap.fit(self._feats, self._targets, cols) for name, cols in MODELS.items()}
+            self._result = maps if all(m is not None for m in maps.values()) else None
         except np.linalg.LinAlgError:
             self._result = None
         self.status = "done" if self._result is not None else "failed"
         self._feats, self._targets = [], []
 
     def take_result(self):
-        """הכיול שהסתיים, פעם אחת: GazeMap או None."""
+        """הכיול שהסתיים, פעם אחת: {מצב: GazeMap} או None."""
         with self._lock:
             result, self._result = self._result, None
             return result

@@ -77,6 +77,10 @@ def test_a_saved_map_comes_back_and_a_bad_one_is_dropped():
     assert np.allclose(back.wx, m.wx) and np.allclose(back.wy, m.wy)
     for bad in (None, {}, {"wx": [1, 2], "wy": [1, 2, 3, 4, 5]}, {"wx": [0, 0, 0, 0, "x"], "wy": [0] * 5}, {"wx": [float("nan")] * 5, "wy": [0] * 5}):
         assert gaze.GazeMap.from_dict(bad) is None
+    pupils = gaze.GazeMap(np.arange(3.0), np.ones(3), gaze.PUPILS)
+    back = gaze.GazeMap.from_dict(json.loads(json.dumps(pupils.to_dict())), gaze.PUPILS)
+    assert np.allclose(back.wx, pupils.wx) and back.cols == [0, 1]
+    assert gaze.GazeMap.from_dict(m.to_dict(), gaze.PUPILS) is None   # a 5-coefficient map is not a pupils map
 
 
 def run_calibration(calib, feature_of, garbage_while_settling=False):
@@ -107,10 +111,12 @@ def test_the_calibration_walks_nine_points_and_fits_them():
     run_calibration(calib, looks_at, garbage_while_settling=True)     # the settle time is not counted: garbage there must not matter
     snap = calib.snapshot()
     assert snap["active"] is False and snap["status"] == "done" and snap["total"] == 9
-    m = calib.take_result()
-    assert m is not None and calib.take_result() is None             # handed over once
+    maps = calib.take_result()
+    assert maps is not None and calib.take_result() is None          # handed over once
+    assert set(maps) == {"eyes", "pupils"} and len(maps["pupils"].wx) == 3
     for xy in gaze.TARGETS:
-        assert m.apply(looks_at(xy)) == pytest.approx(xy, abs=1e-6)
+        assert maps["eyes"].apply(looks_at(xy)) == pytest.approx(xy, abs=1e-6)
+        assert maps["pupils"].apply(looks_at(xy)) == pytest.approx(xy, abs=1e-6)
 
 
 def test_cancel_stops_the_calibration_and_keeps_nothing():
@@ -127,21 +133,29 @@ class FakeMouse:
         self.position = (0, 0)
 
 
-def controller(gaze_model):
-    cfg = {"control_enabled": True, "control_source": "eyes", "control_hand": "both", "sensitivity": 1.0, "smoothing": 0.5,
-           "bindings": {}, "gaze_model": gaze_model}
+def controller(models, source="eyes"):
+    cfg = {"control_enabled": True, "control_source": source, "control_hand": "both", "sensitivity": 1.0, "smoothing": 0.5,
+           "bindings": {}, "gaze_models": models}
     return mouse_control.MouseController(cfg, mouse=FakeMouse(), screen=(1001, 801), launcher=lambda b: None)
 
 
 def test_the_cursor_follows_the_calibrated_gaze_and_stops_when_the_eyes_close():
     model = gaze.GazeMap(wx=[0.5, 1, 0, 0, 0], wy=[0.5, 0, 1, 0, 0]).to_dict()
-    m = controller(model)
+    m = controller({"eyes": model})
     signs = [None] * 9
     m.update([], face_pts(), signs, None, gaze_feat=np.array([0.2, -0.1, 0.0, 0.0]))
     assert abs(m.mouse.position[0] - 700) <= 1 and abs(m.mouse.position[1] - 320) <= 1
     assert m.point == pytest.approx((0.5, 0.5))   # the display point is the iris centre in the frame
     m.update([], face_pts(), signs, None, gaze_feat=None)   # eyes closed: the cursor stays where it was
     assert abs(m.mouse.position[0] - 700) <= 1
+
+
+def test_the_pupils_mode_ignores_the_head_turn():
+    pupils = gaze.GazeMap(wx=[0.5, 1, 0], wy=[0.5, 0, 1], cols=gaze.PUPILS).to_dict()
+    m = controller({"pupils": pupils}, source="pupils")
+    m.update([], face_pts(), [None] * 9, None, gaze_feat=np.array([0.2, -0.1, 0.0, 0.0]))
+    m.update([], face_pts(), [None] * 9, None, gaze_feat=np.array([0.2, -0.1, 25.0, 10.0]))   # the head turned, the pupils did not move
+    assert abs(m.mouse.position[0] - 700) <= 1 and abs(m.mouse.position[1] - 320) <= 1
 
 
 def test_without_a_calibration_the_eyes_do_not_move_the_cursor():
@@ -162,18 +176,18 @@ class FakeTracker:
 
 class FakeMouseCtl:
     def __init__(self):
-        self.gaze_map = None
+        self.gaze_maps = {}
 
 
 def test_the_backend_starts_saves_and_rejects_what_it_does_not_know():
     saved, tracker, mouse = [], FakeTracker(), FakeMouseCtl()
-    cfg = {"control_source": "eyes", "gaze_model": None}
+    cfg = {"control_source": "eyes", "gaze_models": None}
     be = webui.Backend(cfg, None, tracker, mouse, None, None, saved.append, lambda: None)
     be.gaze({"action": "start"})
     assert be._gaze_state()["calib"]["active"] is True and be._gaze_state()["calibrated"] is False
     run_calibration(tracker.gaze_calib, looks_at)
     be.tick()
-    assert cfg["gaze_model"] is not None and mouse.gaze_map is not None and len(saved) == 1
+    assert set(cfg["gaze_models"]) == {"eyes", "pupils"} and set(mouse.gaze_maps) == {"eyes", "pupils"} and len(saved) == 1
     assert be._gaze_state()["calibrated"] is True
     with pytest.raises(webui.ApiError):
         be.gaze({"action": "nope"})

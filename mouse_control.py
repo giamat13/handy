@@ -166,7 +166,8 @@ class MouseController:
         self.held_keys = {}        # מחווה -> מקשים שהיא מחזיקה לחוצים (קיצור בלחיצה ארוכה)
         self.head_center = None
         self._last_point = None
-        self.gaze_map = gaze.GazeMap.from_dict(cfg.get("gaze_model"))   # הכיול של המבט (gaze.py), או None: בלי כיול העיניים לא מזיזות
+        saved = cfg.get("gaze_models") or {}
+        self.gaze_maps = {name: gaze.GazeMap.from_dict(saved.get(name), cols) for name, cols in gaze.MODELS.items()}   # הכיולים של המבט (gaze.py) לכל מצב, או None: בלי כיול המצב לא מזיז
         self._screen = None        # מצב העיניים: המיקום במסך (0..1) שהכיול נתן לפריים הזה
         self.point = None          # הנקודה השולטת בקואורדינטות הפריים (לשובל), או None
         self.active_slot = None    # איזו יד מזיזה את הסמן עכשיו (0 שמאל, 1 ימין), או None
@@ -219,8 +220,8 @@ class MouseController:
             p = hand[[0, 5, 9, 13, 17]].mean(axis=0)
         elif src == "head" and face is not None:
             p = face[1]  # קצה האף
-        elif src == "eyes" and face is not None and gaze_feat is not None and self.gaze_map is not None:
-            self._screen = self.gaze_map.apply(gaze_feat)   # המיקום במסך הוא מהכיול; p (מרכז האישונים) משמש לתצוגה בלבד
+        elif src in gaze.MODELS and face is not None and gaze_feat is not None and self.gaze_maps.get(src) is not None:
+            self._screen = self.gaze_maps[src].apply(gaze_feat)   # המיקום במסך הוא מהכיול; p (מרכז האישונים) משמש לתצוגה בלבד
             p = face[list(gaze.IRIS_CENTERS)].mean(axis=0)
         else:
             return None, src
@@ -228,7 +229,7 @@ class MouseController:
         return p, src
 
     def _move(self, p, src, now):
-        if src == "eyes":
+        if src in gaze.MODELS:
             nx, ny = p   # כבר במסך (0..1), מהכיול ב-gaze.py
         else:
             sens = max(self.cfg["sensitivity"], 0.1)
@@ -316,7 +317,7 @@ class MouseController:
             return
 
         if p is not None and now >= self.freeze_until:
-            self._move(self._screen if src == "eyes" else p, src, now)
+            self._move(self._screen if src in gaze.MODELS else p, src, now)
         elif p is None:
             self.fx.reset(), self.fy.reset()
         self._gestures(raw, now, only_toggle=False)
