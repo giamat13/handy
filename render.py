@@ -26,7 +26,7 @@ class Renderer:
         self.tracker, self.mouse, self.cfg, self.names = tracker, mouse, cfg, names
         self.trail = view_aids.Trail()
         self.ripples = view_aids.Ripples()
-        self.detect = self.detect_hand = self.detect_head = "—"   # הכול, מחוות היד בלבד, מחוות הראש בלבד
+        self.detect = self.detect_hand = self.detect_head = self.detect_body = "—"   # הכול, מחוות היד בלבד, מחוות הראש בלבד, מחוות הגוף בלבד
         self.conf = {}                     # {מזהה מחווה: ביטחון 0..1} מהפריים האחרון, לתצוגת האבחון
         self.fps = 0.0
         self.draw_rate, self.draw_ms, self.encode_ms = RateMeter(), TimeMeter(), TimeMeter()
@@ -68,10 +68,14 @@ class Renderer:
         img = cv2.resize(out.frame, (VIEW_W, VIEW_H), interpolation=cv2.INTER_LINEAR)
         if cfg["show_face_mesh"] and out.face is not None:
             overlay.draw_face(img, out.face)
+        if cfg["show_body"] and out.body is not None:
+            view_aids.draw_body(img, out.body, with_face=out.face is not None)
         if cfg["show_hand_mesh"]:
             active = self.mouse.active_slot if cfg["control_source"] == "hand" else None
             for h, slot in zip(out.hands, out.slots):
                 overlay.draw_hand(img, h, active=slot == active)
+            for hand in out.near:
+                overlay.draw_hand(img, hand)
         if cfg["show_pinch_gauge"]:
             for h in out.hands:
                 view_aids.draw_pinch(img, h)
@@ -104,6 +108,7 @@ class Renderer:
             self.detect = detect_text(out.signs, names)
             self.detect_hand = detect_text([*out.signs[:2], *out.signs[8:]], names)    # signs[0], signs[1]: שתי הידיים; signs[8]: תנועות יד
             self.detect_head = detect_text(out.signs[2:8], names)    # signs[2:8]: הראש
+            self.detect_body = detect_text(out.signs[9:], names)    # signs[9]: מחוות הגוף
             self.conf = out.conf
             self.fps = self.tracker.fps
             if time.monotonic() > self._want_until:

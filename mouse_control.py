@@ -35,6 +35,7 @@ _CENTER = {"hand": (0.5, 0.45), "head": (0.5, 0.5)}
 _SLOTS = {"left": {0}, "right": {1}, "both": {0, 1}}
 SLOT_NAMES = {0: "Left", 1: "Right"}
 HEAD_SLOTS = (2, 3, 4, 5, 6, 7, 8)   # signs[8] = תנועות יד (כבר מסוננות לפי היד השולטת ב-Tracker); signs[2] = מחווה מותאמת של הראש, [3] = הנהון / ניעור, [4] = הטיית ראש, [5] = ראש קדימה / אחורה, [6] = קריצה / מצמוץ, [7] = פה / חיוך / גבות: פועלות בלי קשר לאיזו יד שולטת
+BODY_SLOTS = (9,)   # signs[9] = מחוות גוף (body_gestures.py): קפיצה, התכופפות, רכינה, שתי ידיים למעלה. פועלות בלי קשר לאיזו יד שולטת
 
 CLICK_EVENTS = 16   # כמה קליקים אחרונים נשמרים לתצוגה (גלי הקליק על הווידאו)
 
@@ -302,9 +303,9 @@ class MouseController:
         gaze_feat = מדידת המבט של הפריים (gaze.features), או None."""
         now = time.perf_counter()
         allowed = self.allowed_slots()
-        # מחוות של היד השולטת נחשבות; מחוות הראש (HEAD_SLOTS) לא קשורות ליד ולכן תמיד
+        # מחוות של היד השולטת נחשבות; מחוות הראש והגוף (HEAD_SLOTS, BODY_SLOTS) לא קשורות ליד ולכן תמיד
         # משבצת יכולה להחזיק כמה מחוות יחד (tuple), למשל חיוך וגבות מורמות בו־זמנית
-        raw = {g for i, s in enumerate(signs) if s and (i in allowed or i in HEAD_SLOTS)
+        raw = {g for i, s in enumerate(signs) if s and (i in allowed or i in HEAD_SLOTS or i in BODY_SLOTS)
                for g in (s if isinstance(s, tuple) else (s,))}
 
         p, src = self._point(hands, face, labels, gaze_feat)

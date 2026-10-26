@@ -109,6 +109,9 @@ def test_gestures_are_all_hand_gestures_and_there_are_no_winks(be):
                                                                                     "eye_wink_left", "eye_wink_right", "eye_blink_long",
                                                                                     "face_mouth_open", "face_smile", "face_brows_up"}      # built-in head motions, apart from the hand signs
     assert all(r["kind"] == "head" for r in g["head"])
+    assert {r["id"] for r in g["body"]} == set(actions.BODY_GESTURES) == {"body_jump", "body_crouch", "body_lean_left", "body_lean_right", "body_arms_up"}
+    assert all(r["kind"] == "body" and r["text"] == actions.ACTIONS["none"] for r in g["body"])      # body gestures have their own group, built in only
+    assert not set(actions.BODY_GESTURES) & (hand | set(actions.HEAD_GESTURES) | set(actions.HAND_MOTIONS))
     assert {r["id"] for r in g["motion"]} == set(actions.HAND_MOTIONS) and len(actions.HAND_MOTIONS) == 7      # hand motions have their own group
     assert not set(actions.HAND_MOTIONS) & (hand | set(actions.HEAD_GESTURES))
     assert not set(actions.HEAD_GESTURES) & hand
@@ -307,7 +310,7 @@ def test_state_carries_confidence_and_stage_timings(be):
     be.renderer.conf = {"victory": 0.93, "custom:x": 0.1234}
     st = be.state()
     assert st["conf"] == {"victory": 0.93, "custom:x": 0.12}
-    assert set(st["perf"]) == {"camera_fps", "tracker_fps", "hands_ms", "face_ms", "logic_ms", "latency_ms", "draw_fps", "draw_ms",
+    assert set(st["perf"]) == {"camera_fps", "tracker_fps", "hands_ms", "face_ms", "body_ms", "logic_ms", "latency_ms", "draw_fps", "draw_ms",
                                "encode_ms", "cursor_hz"}
     assert all(v is None for v in st["perf"].values())                   # the fakes measure nothing: reported as unknown
     from perf import RateMeter, TimeMeter

@@ -42,6 +42,10 @@
       <div class="grow"><div class="label">מחוות ראש: מזוהה עכשיו</div><div id="detect-head" class="detect">—</div></div>
       <div class="action"><div class="label">פעולה</div><b id="detect-action-head">—</b></div>
     </div>
+    <div class="detect-card">
+      <div class="grow"><div class="label">מחוות גוף: מזוהה עכשיו</div><div id="detect-body" class="detect">—</div></div>
+      <div class="action"><div class="label">פעולה</div><b id="detect-action-body">—</b></div>
+    </div>
   </section>
 
   <section class="panel">
@@ -65,6 +69,10 @@
       <h2>מחוות ראש מובנות</h2>
       <p class="muted small">הטיית ראש לכתף (שמאלה או ימינה, מעל כ-20 מעלות, מוחזקת חצי שנייה) היא תנוחה שנשארת פעילה כל עוד הראש מוטה, ולכן מתאימה לגלילה רציפה או לקיצור כמו Alt+←, Alt+→. ראש קדימה (התקרבות למצלמה) ואחורה (התרחקות) מזוהה לפי שינוי של כ-15% בגודל הפנים בפריים מול הגודל הרגיל שלך, כשהראש מחזיק חצי שנייה ולא מוטה או מופנה; ישיבה קרובה יותר מהרגיל מתאזנת לבד אחרי כמה שניות. אפשר לקשור אליהן זום, למשל Ctrl+פלוס ו-Ctrl+מינוס. קריצה (עין אחת סגורה לפחות רבע שנייה כשהשנייה פתוחה) ומצמוץ ארוך (שתי העיניים סגורות חצי שנייה) נשארות פעילות כל עוד העין סגורה, ולכן מתאימות גם ללחיצה ארוכה או לגרירה; מצמוץ רגיל לא נספר, ולא מזהים כשמסתכלים למטה או כשהראש מופנה הצידה. "שמאל" ו"ימין" הן כפי שרואים על המסך. פה פתוח (רבע שנייה, כך שדיבור רגיל לא מפעיל), חיוך (הפה מתרחב בכ-10% מהרגיל שלך) וגבות מורמות (כ-15% יותר מהרגיל) נשארות פעילות כל עוד מחזיקים אותן, ויכולות להיות פעילות יחד; לא מזהים כשהראש מופנה או מוטה בחדות. הנהון (כן) וניעור ראש (לא) הן תנועות ולא תנוחות, ולכן אין צורך להקליט אותן. מנענעים את הראש לפחות שלוש תנועות רצופות, מהר ובמלוא העוצמה: למעלה-למטה-למעלה להנהון, או שמאלה-ימינה-שמאלה לניעור. כשהסמן נשלט בראש, התנועה גם מזיזה אותו קצת. מחוות ראש שהקלטת בעצמך נמצאות בלשונית "מחוות שלי".</p>
       <div id="rows-head" class="rows"></div>
+
+      <h2>מחוות גוף מובנות</h2>
+      <p class="muted small">קפיצה: הכתפיים עולות מהר, בערך חצי רוחב כתף, ונספרת פעם אחת לכל עלייה. התכופפות: הכתפיים יורדות בערך חצי רוחב כתף ומוחזקות חצי שנייה. רכינה ימינה או שמאלה: הכתפיים נוטות לצד בכ-12 מעלות מעל הרגיל שלך ומוחזקות חצי שנייה. זו הטיית הגוף, לא הראש. שתי ידיים למעלה: שני שורשי כפות מעל האף, מוחזקות חצי שנייה. המדידות ביחס לרוחב הכתפיים, לכן המרחק מהמצלמה לא משנה. מחוות אלה דורשות שהכתפיים נראות במצלמה. אין צורך להקליט אותן.</p>
+      <div id="rows-body" class="rows"></div>
     </div>
 
     <div class="tab" id="tab-mine">
@@ -109,6 +117,7 @@
       <h2>תצוגה</h2>
       <label class="switch"><input type="checkbox" data-key="show_hand_mesh"><span class="track"></span><span>הצג רשת יד</span></label>
       <label class="switch"><input type="checkbox" data-key="show_face_mesh"><span class="track"></span><span>הצג נקודות פנים</span></label>
+      <label class="switch"><input type="checkbox" data-key="show_body"><span class="track"></span><span>הצג שלד גוף (כתפיים, זרועות וטורסו)</span></label>
       <label class="switch"><input type="checkbox" data-key="show_trail"><span class="track"></span><span>שובל אחרי הנקודה השולטת</span></label>
       <label class="switch"><input type="checkbox" data-key="show_coords"><span class="track"></span><span>קואורדינטות של הסמן</span></label>
       <label class="switch"><input type="checkbox" data-key="show_head_axes"><span class="track"></span><span>צירי ראש תלת-ממדיים מעל האף, עם זוויות</span></label>

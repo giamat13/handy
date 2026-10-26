@@ -27,7 +27,7 @@ const PREVIEW = TOKEN === "__TOKEN__";
 const mock = {
   config: {
     version: 1, app_version: "2.1.0 (תצוגה מקדימה)", control_enabled: false,
-    settings: { show_hand_mesh: true, show_face_mesh: true, show_trail: true, show_coords: true, show_head_axes: true, show_pinch_gauge: true,
+    settings: { show_hand_mesh: true, show_face_mesh: true, show_body: true, show_trail: true, show_coords: true, show_head_axes: true, show_pinch_gauge: true,
       show_ripples: true, autostart: false, run_in_background: false, auto_update_check: true, beta_channel: false, control_source: "hand", control_hand: "both", sensitivity: 1.0, smoothing: 0.5 },
     limits: { sensitivity: [0.4, 3.0], smoothing: [0.0, 1.0] },
     actions: [["none", "ללא"], ["left_click", "קליק שמאלי"], ["right_click", "קליק ימני"], ["double_click", "קליק כפול"], ["middle_click", "קליק אמצעי"],
@@ -45,11 +45,13 @@ const mock = {
         ["lean_forward", "ראש קדימה (התקרבות)", "none"], ["lean_back", "ראש אחורה (התרחקות)", "none"],
         ["eye_wink_left", "קריצה בעין שמאל", "none"], ["eye_wink_right", "קריצה בעין ימין", "none"], ["eye_blink_long", "מצמוץ ארוך", "none"],
         ["face_mouth_open", "פה פתוח", "none"], ["face_smile", "חיוך", "none"], ["face_brows_up", "גבות מורמות", "none"]].map(([id, name, binding]) => ({ id, name, binding, kind: "head" })),
+      body: [["body_jump", "קפיצה"], ["body_crouch", "התכופפות"], ["body_lean_left", "רכינה שמאלה"], ["body_lean_right", "רכינה ימינה"],
+        ["body_arms_up", "שתי ידיים למעלה"]].map(([id, name]) => ({ id, name, binding: "none", kind: "body" })),
       custom: [{ id: "custom:demo", name: "אצבע קטנה וקמיצה", kind: "hand", binding: "none" },
         { id: "custom:demo2", name: "ראש מוטה ימינה", kind: "head", binding: "none" }],
     },
   },
-  state: { config_version: 1, fps: 30, detect: "ניצחון (V)", detect_hand: "ניצחון (V)", detect_head: "ראש מוטה ימינה", enabled: false, camera: true, active_hand: "right", recording: null, rec_result: null,
+  state: { config_version: 1, fps: 30, detect: "ניצחון (V)", detect_hand: "ניצחון (V)", detect_head: "ראש מוטה ימינה", detect_body: "—", enabled: false, camera: true, active_hand: "right", recording: null, rec_result: null,
     conf: { victory: 0.93, point: 0.41, three: 0.38, "custom:demo": 0.12, "custom:demo2": 0.7 },
     perf: { camera_fps: 15.2, tracker_fps: 14.8, hands_ms: 9.1, face_ms: 11.4, logic_ms: 0.6, latency_ms: 38, draw_fps: 14.7, draw_ms: 7.2, encode_ms: 3.1, cursor_hz: 96 },
     update: { status: "idle", progress: 0, message: "", notice: null, info: null } },
@@ -154,6 +156,7 @@ function renderRows() {
   $("#rows-hand").replaceChildren(...g.hand.map((x) => makeRow(x)));
   $("#rows-motion").replaceChildren(...g.motion.map((x) => makeRow(x)));
   $("#rows-head").replaceChildren(...g.head.map((x) => makeRow(x)));
+  $("#rows-body").replaceChildren(...g.body.map((x) => makeRow(x)));
   for (const kind of Object.keys(KINDS)) {   // יד וראש: שתי רשימות נפרדות בשתי לשוניות
     const mine = g.custom.filter((x) => (x.kind || "hand") === kind);
     $(`#rows-custom-${kind}`).replaceChildren(...mine.map((x) => customRow(x, kind)));
@@ -256,7 +259,7 @@ let confRows = [];
 
 function buildConf() {
   const groups = [["מחוות יד", config.groups.hand], ["תנועות יד", config.groups.motion], ["מחוות יד שלי", config.groups.custom.filter((g) => g.kind !== "head")],
-    ["מחוות ראש מובנות", config.groups.head], ["מחוות ראש שלי", config.groups.custom.filter((g) => g.kind === "head")]];
+    ["מחוות ראש מובנות", config.groups.head], ["מחוות גוף מובנות", config.groups.body], ["מחוות ראש שלי", config.groups.custom.filter((g) => g.kind === "head")]];
   const box = $("#conf-bars");
   box.replaceChildren();
   confRows = [];
@@ -306,7 +309,7 @@ function renderConf(st) {
 
 const PERF_ROWS = [
   ["camera_fps", "מצלמה: פריימים שהיא מספקת", "/ש׳"], ["tracker_fps", "מעקב: פריימים שמעובדים", "/ש׳"],
-  ["hands_ms", "זיהוי ידיים (MediaPipe)", "ms"], ["face_ms", "זיהוי פנים (MediaPipe)", "ms"],
+  ["hands_ms", "זיהוי ידיים (MediaPipe)", "ms"], ["face_ms", "זיהוי פנים (MediaPipe)", "ms"], ["body_ms", "זיהוי גוף (MediaPipe)", "ms"],
   ["logic_ms", "מחוות ושליטה בעכבר", "ms"], ["latency_ms", "השהיה: מהפריים עד הסמן", "ms"],
   ["cursor_hz", "עדכוני סמן בשנייה (בזמן תנועה)", "/ש׳"], ["draw_fps", "ציור הווידאו בחלון", "/ש׳"],
   ["draw_ms", "ציור הפריים", "ms"], ["encode_ms", "קידוד JPEG", "ms"],
@@ -317,8 +320,8 @@ function perfNote(p) {
   if (p.camera_fps === 0) return ["המצלמה לא מספקת פריימים", false];
   if (p.camera_fps < 24) return [`המצלמה נותנת רק ${p.camera_fps.toFixed(0)} פריימים בשנייה (תאורה חלשה גורמת לזה לרוב), ולכן גם המעקב והסמן לא יעברו את הקצב הזה`, false];
   if (p.tracker_fps < p.camera_fps * 0.85) {
-    const work = (p.hands_ms || 0) + (p.face_ms || 0);
-    return [`המעקב מעבד ${p.tracker_fps.toFixed(0)} מתוך ${p.camera_fps.toFixed(0)} פריימים שהמצלמה נותנת: זיהוי ידיים ופנים לוקח ${work.toFixed(0)} ms לפריים`, false];
+    const work = (p.hands_ms || 0) + (p.face_ms || 0) + (p.body_ms || 0);
+    return [`המעקב מעבד ${p.tracker_fps.toFixed(0)} מתוך ${p.camera_fps.toFixed(0)} פריימים שהמצלמה נותנת: זיהוי ידיים, פנים וגוף לוקח ${work.toFixed(0)} ms לפריים`, false];
   }
   return ["הקצב תקין: המעקב עומד בקצב של המצלמה", true];
 }
@@ -387,9 +390,10 @@ function renderUpdate(u) {
 function renderState(st) {
   const first = !lastState;
   $("#status").textContent = `${st.fps.toFixed(0)} FPS`;
-  const detectHand = st.detect_hand ?? st.detect, detectHead = st.detect_head ?? "—";   // יד וראש מוצגים בנפרד
+  const detectHand = st.detect_hand ?? st.detect, detectHead = st.detect_head ?? "—", detectBody = st.detect_body ?? "—";   // יד, ראש וגוף מוצגים בנפרד
   $("#detect-hand").textContent = detectHand;
   $("#detect-head").textContent = detectHead;
+  $("#detect-body").textContent = detectBody;
   $("#no-camera").hidden = st.camera;
   if (Date.now() - toggling > 1500) $("#control").checked = st.enabled;
   if (config) {
@@ -402,13 +406,14 @@ function renderState(st) {
     $("#gaze-field").hidden = !["eyes", "pupils"].includes(s.control_source);
   }
   renderGaze(st.gaze);
-  const liveHand = new Set(detectHand.split(" + ")), liveHead = new Set(detectHead.split(" + "));
-  for (const row of $$(".row")) row.classList.toggle("live", liveHand.has(row.dataset.name) || liveHead.has(row.dataset.name));
+  const liveHand = new Set(detectHand.split(" + ")), liveHead = new Set(detectHead.split(" + ")), liveBody = new Set(detectBody.split(" + "));
+  for (const row of $$(".row")) row.classList.toggle("live", liveHand.has(row.dataset.name) || liveHead.has(row.dataset.name) || liveBody.has(row.dataset.name));
   // הפעולה של המחווה המזוהה (הראשונה), בכרטיס של כל סוג מתחת לווידאו
   const rows = config ? Object.values(config.groups).flat() : [];
-  const handRows = rows.filter((r) => r.kind !== "head"), headRows = rows.filter((r) => r.kind === "head");
+  const handRows = rows.filter((r) => r.kind !== "head" && r.kind !== "body"), headRows = rows.filter((r) => r.kind === "head"), bodyRows = rows.filter((r) => r.kind === "body");
   $("#detect-action-hand").textContent = handRows.find((r) => liveHand.has(r.name))?.text || "—";
   $("#detect-action-head").textContent = headRows.find((r) => liveHead.has(r.name))?.text || "—";
+  $("#detect-action-body").textContent = bodyRows.find((r) => liveBody.has(r.name))?.text || "—";
   renderRecording(st);
   if ($("#tab-diag").classList.contains("active")) { renderConf(st); renderPerf(st.perf); }   // רק כשהלשונית פתוחה
   renderUpdate(st.update);

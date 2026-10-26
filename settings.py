@@ -104,6 +104,7 @@ DEFAULTS = {
     "settings_version": SETTINGS_VERSION,
     "show_hand_mesh": True,
     "show_face_mesh": True,
+    "show_body": True,         # שלד הגוף העליון על הווידאו (הכתפיים, הזרועות והטורסו)
     "show_trail": True,        # שובל אחרי הנקודה השולטת
     "show_coords": True,       # קואורדינטות הסמן על הווידאו
     "show_head_axes": True,    # צירי הראש התלת-ממדיים מעל האף, עם הזוויות

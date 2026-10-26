@@ -41,6 +41,15 @@ HAND_MOTIONS = {
     "wave": "נפנוף",
 }
 
+# מחוות גוף מובנות (body_gestures.py): קפיצה, התכופפות, רכינה ושתי ידיים למעלה. תנועה או תנוחה, ולכן אי אפשר להקליט אותן
+BODY_GESTURES = {
+    "body_jump": "קפיצה",
+    "body_crouch": "התכופפות",
+    "body_lean_left": "רכינה שמאלה",
+    "body_lean_right": "רכינה ימינה",
+    "body_arms_up": "שתי ידיים למעלה",
+}
+
 # פעולות ישנות שהפכו ללחיצה רגילה: לחיצה שמחזיקים (המחווה) היא לחיצה ארוכה, אז אין להן יותר פעולה נפרדת
 LEGACY_ACTIONS = {"drag": "left_click", "hold_right": "right_click", "hold_middle": "middle_click"}
 
@@ -95,6 +104,11 @@ DEFAULT_BINDINGS = {
     "circle_cw": "none",
     "circle_ccw": "none",
     "wave": "none",
+    "body_jump": "none",
+    "body_crouch": "none",
+    "body_lean_left": "none",
+    "body_lean_right": "none",
+    "body_arms_up": "none",
 }
 
 

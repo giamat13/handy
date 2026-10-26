@@ -179,6 +179,35 @@ def draw_head_axes(img, pose):
     _shadow_text(img, head_text(pose), (int(10 * scale), int(24 * scale)), 0.55 * scale)
 
 
+# --- שלד הגוף העליון ----------------------------------------------------------------------
+# זוגות הנקודות של MediaPipe Pose (POSE_CONNECTIONS): ראש, כתפיים, זרועות, כפות, טורסו ורגליים
+BODY_BONES = ((0, 1), (1, 2), (2, 3), (3, 7), (0, 4), (4, 5), (5, 6), (6, 8), (9, 10), (11, 12), (11, 13), (13, 15), (15, 17), (15, 19),
+              (15, 21), (17, 19), (12, 14), (14, 16), (16, 18), (16, 20), (16, 22), (18, 20), (11, 23), (12, 24), (23, 24), (23, 25),
+              (24, 26), (25, 27), (26, 28), (27, 29), (28, 30), (29, 31), (30, 32), (27, 31), (28, 32))
+FACE_POINTS = range(11)   # 0-10: האף, העיניים, האוזניים והפה. כשרשת הפנים מוצגת הם כבר מצוירים, אז לא מציירים אותם שוב
+BODY_SEEN = 0.3   # ציור: נקודה עם ביטחון מעל זה מצוירת, גם אם היא לא מלאה. נמוך מהסף של המחוות (body_pose.MIN_VISIBLE) כדי שחלק מגוף יופיע
+BODY_COLOR = (255, 170, 60)   # כתום, כדי שלא יתערבב עם רשת היד והפנים
+
+
+def draw_body(img, pts, with_face=False):
+    """שלד הגוף: קו לכל זוג נקודות שנראות, ונקודה לכל נקודה שנראית. pts = (33, 3) = (x, y, ביטחון) מנורמלים.
+    with_face: רשת הפנים מוצגת, אז נקודות הפנים של השלד לא מצוירות."""
+    import cv2
+
+    h, w = img.shape[:2]
+    scale = max(w / 640.0, 0.5)
+    p = [(int(x * w), int(y * h)) for x, y, _ in pts]
+    seen = [v >= BODY_SEEN and not (with_face and i in FACE_POINTS) for i, (_, _, v) in enumerate(pts)]
+    for a, b in BODY_BONES:
+        if seen[a] and seen[b]:
+            cv2.line(img, p[a], p[b], (0, 0, 0), max(3, round(4 * scale)), cv2.LINE_AA)
+            cv2.line(img, p[a], p[b], BODY_COLOR, max(2, round(2 * scale)), cv2.LINE_AA)
+    for i in range(len(pts)):
+        if seen[i]:
+            cv2.circle(img, p[i], max(3, round(4 * scale)), (255, 255, 255), -1, cv2.LINE_AA)
+            cv2.circle(img, p[i], max(2, round(3 * scale)), BODY_COLOR, -1, cv2.LINE_AA)
+
+
 # --- מד הצביטה ----------------------------------------------------------------------
 PINCH_FULL = 1.0   # מרחק (ביחידות כף יד) שבו המד ריק
 

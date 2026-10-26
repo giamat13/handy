@@ -21,10 +21,11 @@ MAX_BODY = 64 * 1024
 UI_GONE_AFTER = 120.0   # שניות בלי שום פנייה מהדף (דפדפן שקרס). סגירה רגילה מדווחת מיד דרך /api/bye
 BYE_GRACE = 3.0         # אחרי bye מחכים רגע: רענון של הדף שולח bye ומיד אחריו פנייה חדשה
 
-BOOL_KEYS = ("show_hand_mesh", "show_face_mesh", "show_trail", "show_coords", "show_head_axes", "show_pinch_gauge", "show_ripples",
+BOOL_KEYS = ("show_hand_mesh", "show_face_mesh", "show_body", "show_trail", "show_coords", "show_head_axes", "show_pinch_gauge", "show_ripples",
              "run_in_background", "auto_update_check", "beta_channel")
 CHOICES = {"control_source": ("hand", "head", "eyes", "pupils"), "control_hand": ("right", "left", "both")}
 RANGES = {"sensitivity": (0.4, 3.0), "smoothing": (0.0, 1.0)}
+KIND_BODY = "body"      # סוג השורה בממשק למחוות גוף מובנות (כמו KIND_HEAD לראש)
 CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8",
                  ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon"}
 
@@ -91,7 +92,7 @@ class Backend:
 
     # --- קריאה ---
     def names(self):
-        return {**actions.GESTURES, **actions.HAND_MOTIONS, **actions.HEAD_GESTURES, **self.store.names()}
+        return {**actions.GESTURES, **actions.HAND_MOTIONS, **actions.HEAD_GESTURES, **actions.BODY_GESTURES, **self.store.names()}
 
     def _row(self, gid, name, kind=KIND_HAND):
         b = self.cfg["bindings"].get(gid, "none")
@@ -115,6 +116,7 @@ class Backend:
                 "hand": [self._row(g, n) for g, n in actions.GESTURES.items()],
                 "motion": [self._row(g, n) for g, n in actions.HAND_MOTIONS.items()],
                 "head": [self._row(g, n, KIND_HEAD) for g, n in actions.HEAD_GESTURES.items()],
+                "body": [self._row(g, n, KIND_BODY) for g, n in actions.BODY_GESTURES.items()],
                 "custom": [self._row(g, n, kinds.get(g, KIND_HAND)) for g, n in self.store.names().items()],
             },
             "actions": [{"id": k, "label": v, "param": k in actions.PARAM_ACTIONS} for k, v in actions.ACTIONS.items()],
@@ -135,6 +137,7 @@ class Backend:
             "tracker_fps": val(t, "rate", "rate"),
             "hands_ms": val(t, "hands_ms", "ms"),
             "face_ms": val(t, "face_ms", "ms"),
+            "body_ms": val(t, "body_ms", "ms"),
             "logic_ms": val(t, "logic_ms", "ms"),
             "latency_ms": val(t, "latency_ms", "ms"),
             "draw_fps": val(r, "draw_rate", "rate"),
@@ -154,6 +157,7 @@ class Backend:
             "detect": self.renderer.detect,
             "detect_hand": getattr(self.renderer, "detect_hand", self.renderer.detect),
             "detect_head": getattr(self.renderer, "detect_head", "—"),
+            "detect_body": getattr(self.renderer, "detect_body", "—"),
             "conf": {g: round(float(v), 2) for g, v in getattr(self.renderer, "conf", {}).items()},
             "perf": self.perf(),
             "enabled": self.cfg["control_enabled"],
