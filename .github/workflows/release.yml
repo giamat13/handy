@@ -3,7 +3,7 @@ name: release
 #   Windows (required): Handy2Setup.exe (Inno Setup, the one the in-app updater downloads), the portable ZIP
 #   Extra (best effort, a failure is reported but does not stop the release):
 #     Handy2-NSIS-Setup-X.Y.Z.exe (NSIS), Handy2-X.Y.Z-macos.zip (.app), Handy2-X.Y.Z-linux-x64.tar.gz,
-#     Handy2-X.Y.Z-<windows|macos|linux>-nuitka.(zip|tar.gz) (Nuitka)
+#     Handy2-X.Y.Z-<windows|linux>-nuitka.(zip|tar.gz) (Nuitka)
 on:
   push:
     tags: ["v*"]
@@ -134,14 +134,15 @@ jobs:
           retention-days: 1
 
   build-nuitka:
-    # The same app compiled with Nuitka, on all three systems. Slow, so best effort.
+    # The same app compiled with Nuitka, on Windows and Linux. Slow, so best effort. macOS is left out: its Nuitka build
+    # never worked (mediapipe's arm64 file is an x86_64 binary on the runner), and the macOS app is the PyInstaller one.
     runs-on: ${{ matrix.os }}
     continue-on-error: true
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [windows-latest, ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -194,7 +195,6 @@ jobs:
               "macOS app|Handy2-${VERSION}-macos.zip" \
               "Linux|Handy2-${VERSION}-linux-x64.tar.gz" \
               "Nuitka, Windows|Handy2-${VERSION}-windows-nuitka.zip" \
-              "Nuitka, macOS|Handy2-${VERSION}-macos-nuitka.zip" \
               "Nuitka, Linux|Handy2-${VERSION}-linux-nuitka.tar.gz"; do
               name="${row%%|*}"; file="${row##*|}"
               if [ -f "release_files/${file}" ]; then s="built"; else s="MISSING (the build failed or was skipped)"; fi

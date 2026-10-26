@@ -89,7 +89,7 @@ def test_every_target_has_a_job_and_a_file_name_the_publish_job_expects():
     wf = read(".github/workflows/release.yml")
     for job in ("build:", "build-macos:", "build-linux:", "build-nuitka:", "publish:"):
         assert f"\n  {job}" in wf, job
-    for name in ("Handy2-NSIS-Setup-", "-macos.zip", "-linux-x64.tar.gz", "-windows-nuitka.zip", "-macos-nuitka.zip",
+    for name in ("Handy2-NSIS-Setup-", "-macos.zip", "-linux-x64.tar.gz", "-windows-nuitka.zip",
                  "-linux-nuitka.tar.gz"):
         assert name in wf, name
     assert "Handy2-NSIS-Setup-" in read("installer.nsi")
