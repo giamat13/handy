@@ -20,6 +20,7 @@ CROUCH_HOLD = 0.5    # שניות שצריך להחזיק את ההתכופפו�
 LEAN_ENTER = 7.0     # מעלות מעל הרגיל: הטיית הכתפיים שמתחילה רכינה. לראש הסף הוא 20, כי הראש מטה הרבה יותר מהגוף
 LEAN_EXIT = 4.0      # הרכינה נגמרת רק כשההטיה יורדת מתחת לזה
 LEAN_HOLD = 0.4      # שניות שצריך להחזיק את הרכינה
+LEAN_MAX = 8.0       # שניות: רכינה שנמשכת יותר מזה כבר לא רכינה אלא התנוחה החדשה. כך רכינה שנתקעה דולקת לכל היותר זמן זה
 ARMS_HOLD = 0.5      # שניות שצריך להחזיק את שתי הידיים מעל האף
 BODY_TAU = 6.0       # שניות: קצב ההסתגלות של הרגיל (גובה הכתפיים והטיתן), כמו LEAN_TAU בראש
 
@@ -65,6 +66,7 @@ class BodyGestures:
         self._peak = None           # מתי עברו את JUMP_ENTER מהר מספיק: עכשיו מחכים לראות שהן חוזרות לרגיל
         self._spent = False         # העלייה הנוכחית לא תיספר כקפיצה (איטית, או שנשארה למעלה). מתעלמים ממנה עד שהכתפיים יורדות
         self._jump_until = 0.0      # עד מתי מציגים את הקפיצה
+        self._lean_since = None     # מתי התחילה הרכינה הנוכחית (לתקרה LEAN_MAX)
         self._crouch = _Hold(CROUCH, CROUCH_ENTER, CROUCH_EXIT, CROUCH_HOLD)
         self._right = _Hold(LEAN_RIGHT, LEAN_ENTER, LEAN_EXIT, LEAN_HOLD)
         self._left = _Hold(LEAN_LEFT, LEAN_ENTER, LEAN_EXIT, LEAN_HOLD)
@@ -84,6 +86,17 @@ class BodyGestures:
         crouch = self._crouch.update(-rise, now)
         right = self._right.update(tilt, now)
         left = self._left.update(-tilt, now)
+        if right is None and left is None:
+            self._lean_since = None
+        else:
+            if self._lean_since is None:
+                self._lean_since = now
+            if now - self._lean_since > LEAN_MAX:   # רכינה שנמשכת כל כך הרבה היא התנוחה החדשה: מתחילים מהרגיל החדש, והרכינה נגמרת
+                self._base_roll = pose.roll
+                self._right = _Hold(LEAN_RIGHT, LEAN_ENTER, LEAN_EXIT, LEAN_HOLD)
+                self._left = _Hold(LEAN_LEFT, LEAN_ENTER, LEAN_EXIT, LEAN_HOLD)
+                self._lean_since = None
+                right = left = None
         arms = self._arms.update(1.0 if _arms_up(pose) else 0.0, now)
         # הרגיל לא זז בזמן עלייה שנבדקת או תנוחה, אחרת ההסתגלות הייתה מבטלת את המחווה. עלייה שכבר נפסלה לא מקפיאה את הרגיל
         judging = self._rise_since is not None and not self._spent

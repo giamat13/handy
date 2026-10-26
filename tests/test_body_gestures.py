@@ -69,6 +69,12 @@ def test_a_small_lean_counts():
     assert runs(out, LEAN_RIGHT) == 1
 
 
+def test_a_lean_that_never_ends_is_accepted_as_the_posture():
+    out = run(BodyGestures(), [body()] * 30 + [body(roll=9)] * 300)     # 10 s sideways, longer than LEAN_MAX
+    assert runs(out, LEAN_RIGHT) == 1          # it counted once, and did not start again
+    assert LEAN_RIGHT not in (out[-1] or ())   # and it is no longer stuck on
+
+
 def test_a_jump_counts_the_same_at_any_distance():
     rise = [body(cy=240 - 30 * min(i / 9, 1), width=60) for i in range(20)]   # the same jump, the body half as big
     assert runs(run(BodyGestures(), [body(width=60)] * 30 + rise + [body(width=60)] * 30), JUMP) == 1
