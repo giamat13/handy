@@ -24,11 +24,10 @@ jobs:
       # tests/test_tracker.py needs mediapipe (heavy); it skips itself here and runs where mediapipe is installed
       - run: python -m pytest -q tests/test_signs.py tests/test_release.py tests/test_updater.py tests/test_mouse_clicks.py tests/test_settings.py tests/test_commands.py tests/test_custom_gestures.py tests/test_head_gestures.py tests/test_head_motion.py tests/test_body_gestures.py tests/test_eye_gestures.py tests/test_face_expressions.py tests/test_hand_motion.py tests/test_gaze.py tests/test_diagnostics.py tests/test_view_aids.py tests/test_tray.py tests/test_webui.py tests/test_tracker.py
 
-  # The same logic tests on Linux and macOS. They report whether the code works there, but do not block a release:
-  # the release gate is the Windows job above (the updater and the installers are Windows-only).
+  # The same logic tests on Linux and macOS. They block a release too: a version is not published unless it works there.
+  # (The updater and the installers are Windows-only, so those are tested in the Windows job above.)
   test-other-platforms:
     runs-on: ${{ matrix.os }}
-    continue-on-error: true
     timeout-minutes: 20
     strategy:
       fail-fast: false

@@ -59,20 +59,27 @@ def hotkey_text(tokens):
     return "+".join(t.capitalize() if len(t) > 1 else t.upper() for t in tokens)
 
 
+# שם כל מקש ב-pynput (Key.<שם>). לא כל מקש קיים בכל מערכת (ב-macOS אין Key.insert, למשל), לכן מחפשים רק את המקש שנבחר
+_KEY_NAMES = {"tab": "tab", "enter": "enter", "esc": "esc", "space": "space", "backspace": "backspace",
+              "delete": "delete", "insert": "insert", "home": "home", "end": "end", "pageup": "page_up",
+              "pagedown": "page_down", "up": "up", "down": "down", "left": "left", "right": "right",
+              "capslock": "caps_lock", "printscreen": "print_screen", "volume_up": "media_volume_up",
+              "volume_down": "media_volume_down", "volume_mute": "media_volume_mute",
+              "play_pause": "media_play_pause", "next_track": "media_next", "prev_track": "media_previous"}
+
+
 def _pynput_key(token):
     from pynput.keyboard import Key
 
     if token in _MODIFIERS.values():
         return {"ctrl": Key.ctrl, "alt": Key.alt, "shift": Key.shift, "cmd": Key.cmd}[token]
-    if _FKEY.match(token):
-        return getattr(Key, token)  # הביטוי כבר עבר ולידציה: f1..f24
-    table = {"tab": Key.tab, "enter": Key.enter, "esc": Key.esc, "space": Key.space, "backspace": Key.backspace,
-             "delete": Key.delete, "insert": Key.insert, "home": Key.home, "end": Key.end, "pageup": Key.page_up,
-             "pagedown": Key.page_down, "up": Key.up, "down": Key.down, "left": Key.left, "right": Key.right,
-             "capslock": Key.caps_lock, "printscreen": Key.print_screen, "volume_up": Key.media_volume_up,
-             "volume_down": Key.media_volume_down, "volume_mute": Key.media_volume_mute,
-             "play_pause": Key.media_play_pause, "next_track": Key.media_next, "prev_track": Key.media_previous}
-    return table.get(token, token)  # תו בודד נשלח כמו שהוא
+    name = token if _FKEY.match(token) else _KEY_NAMES.get(token)  # f1..f24 כבר עברו ולידציה
+    if name is None:
+        return token  # תו בודד נשלח כמו שהוא
+    key = getattr(Key, name, None)
+    if key is None:
+        raise ValueError(f"המקש {token} לא זמין במערכת הזו")
+    return key
 
 
 def press_hotkey(keyboard, tokens):

@@ -18,7 +18,9 @@ OUT = ROOT / "dist_nuitka"
 def command(python=sys.executable):
     cmd = [python, "-m", "nuitka", "--standalone", "--assume-yes-for-downloads", "--enable-plugin=tk-inter",
            "--include-package=mediapipe", "--include-package-data=mediapipe",
-           "--include-package=pystray", "--include-package=webview", "--include-package-data=webview",
+           "--include-package=pystray",
+           # webview is not --include-package'd: that forces every platform module, which clashes with the pywebview plugin
+           "--include-package-data=webview",
            f"--include-data-dir={ROOT / 'web'}=web",   # the interface (HTML / CSS / JS), served to the app window
            f"--include-data-files={ROOT / 'icon.png'}=icon.png", f"--include-data-files={ROOT / 'icon.ico'}=icon.ico",
            f"--output-dir={OUT}", "--output-filename=Handy2", "--remove-output"]

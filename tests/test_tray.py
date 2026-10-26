@@ -4,7 +4,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import pytest  # noqa: E402
+
 import tray  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def windows(monkeypatch):
+    """tray.py turns the tray off on macOS on purpose. These tests check the Windows tray, so they run as Windows on every system."""
+    monkeypatch.setattr(tray.sys, "platform", "win32")
 
 
 class FakeItem:

@@ -69,6 +69,20 @@ def test_press_hotkey_releases_modifiers_even_when_it_fails():
     assert ("up", Key.ctrl) in kb.log                      # Ctrl לא נשאר לחוץ
 
 
+def test_a_key_this_system_does_not_have_is_refused_before_anything_is_pressed(monkeypatch):
+    pytest.importorskip("pynput.keyboard")
+    import pynput.keyboard
+    from types import SimpleNamespace
+    # macOS has no Key.insert: the keys it does have must still work, and a missing one is refused before Ctrl goes down
+    monkeypatch.setattr(pynput.keyboard, "Key", SimpleNamespace(ctrl="CTRL", alt="ALT", shift="SHIFT", cmd="CMD", tab="TAB"))
+    kb = FakeKeyboard()
+    commands.press_hotkey(kb, ("ctrl", "tab"))
+    assert kb.log == [("down", "CTRL"), ("down", "TAB"), ("up", "TAB"), ("up", "CTRL")]
+    with pytest.raises(ValueError):
+        commands.press_hotkey(kb, ("ctrl", "insert"))
+    assert len(kb.log) == 4
+
+
 # --- scripts ---------------------------------------------------------------
 
 def make_exe(tmp_path, name="tool.cmd" if os.name == "nt" else "tool.sh"):
