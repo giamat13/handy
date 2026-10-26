@@ -47,8 +47,8 @@ def test_a_bad_stored_value_means_the_default(raw):
 
 
 def test_stored_values_are_clamped_to_the_limits():
-    assert tuning.Tuning(cfg_with(CROUCH, sens=9.0)).value(CROUCH, "sens") == 2.0
-    assert tuning.Tuning(cfg_with(CROUCH, sens=0.01)).value(CROUCH, "sens") == 0.5
+    assert tuning.Tuning(cfg_with(CROUCH, sens=30.0)).value(CROUCH, "sens") == 25.0
+    assert tuning.Tuning(cfg_with(CROUCH, sens=0.01)).value(CROUCH, "sens") == 0.125
     assert tuning.Tuning(cfg_with(CROUCH, hold=0.0)).value(CROUCH, "hold") == 0.5
 
 
@@ -66,7 +66,7 @@ def test_a_gesture_ignores_the_values_it_does_not_have():
 
 def test_clean_value_takes_only_numbers_in_range():
     assert tuning.clean_value("sens", 1) == 1.0
-    for bad in (True, "1", 0.4, 2.1, float("nan"), None):
+    for bad in (True, "1", 0.1, 26, float("nan"), None):
         with pytest.raises(ValueError):
             tuning.clean_value("sens", bad)
 
@@ -134,15 +134,42 @@ def test_the_smile_trigger_follows_the_sensitivity():
 
 # --- saved settings and the web API --------------------------------------------------------
 
+def test_the_line_on_the_bar_is_at_half_by_default_and_moves_with_sensitivity():
+    assert tuning.Tuning().mark(TILT_RIGHT) == 0.5
+    assert tuning.Tuning(cfg_with(TILT_RIGHT, sens=2.0)).mark(TILT_RIGHT) == pytest.approx(0.25)
+    assert tuning.Tuning(cfg_with(TILT_RIGHT, sens=0.5)).mark(TILT_RIGHT) == pytest.approx(1.0)
+    assert tuning.Tuning(cfg_with("nod", sens=2.0)).mark("nod") == 0.5                  # no line for nod / shake
+    assert tuning.Tuning(cfg_with("body_arms_up", hold=2.0)).mark("body_arms_up") == 0.5
+
+
+def test_the_score_is_on_the_line_when_the_threshold_is_reached():
+    for sens, line in ((1.0, 0.5), (2.0, 0.25)):
+        det = HeadTilt(tuning.Tuning(cfg_with(TILT_RIGHT, sens=sens)))
+        det.update(SimpleNamespace(roll=20.0 / sens), 0.0)       # exactly the threshold for this sensitivity
+        assert det.scores[TILT_RIGHT] == pytest.approx(line)
+    det = HeadTilt(tuning.Tuning(cfg_with(TILT_RIGHT, sens=2.0)))
+    det.update(SimpleNamespace(roll=5.0), 0.0)                  # half of the threshold, 10 degrees: below the line
+    assert det.scores[TILT_RIGHT] == pytest.approx(0.125)
+
+
+def test_a_line_past_the_edge_stays_at_the_line_and_the_scale_grows():
+    det = HeadTilt(tuning.Tuning(cfg_with(TILT_RIGHT, sens=0.25)))   # the line at 2: the threshold is 80 degrees
+    det.update(SimpleNamespace(roll=80.0), 0.0)
+    assert det.scores[TILT_RIGHT] == pytest.approx(2.0)
+    for i in range(1, 60):                                           # holding the head does not move the line
+        det.update(SimpleNamespace(roll=80.0), i * DT)
+    assert det.scores[TILT_RIGHT] == pytest.approx(2.0)
+
+
 def test_a_broken_tuning_table_in_the_settings_file_is_reset(monkeypatch, tmp_path):
     assert _load_from(monkeypatch, tmp_path, {"tuning": [1, 2]})["tuning"] == {}
 
 
 def test_the_page_is_told_what_each_gesture_can_tune(be):
     t = be.config()["tuning"]
-    assert t["params"]["nod"] == ["sens"]
+    assert "nod" not in t["params"]     # a count of swings, not a threshold: no line on the bar
     assert t["params"]["body_arms_up"] == ["hold"]
-    assert t["limits"]["sens"] == [0.5, 2.0] and t["limits"]["hold"] == [0.5, 2.0]
+    assert t["limits"]["sens"] == [0.125, 25.0] and t["limits"]["hold"] == [0.5, 2.0]
     assert t["values"] == {}
 
 
@@ -168,7 +195,7 @@ def test_untunable_gestures_are_refused(be):
             be.set_tuning({"gesture": gid, "sens": 1.5})
 
 
-@pytest.mark.parametrize("bad", [0.1, 3.0, True, "1", None])
+@pytest.mark.parametrize("bad", [0.05, 30.0, True, "1", None])
 def test_out_of_range_values_are_refused(be, bad):
     with pytest.raises(webui.ApiError):
         be.set_tuning({"gesture": CROUCH, "sens": bad})

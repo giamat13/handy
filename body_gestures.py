@@ -41,15 +41,16 @@ class _Hold:
         enter = self.tuning.threshold(self.name, self.enter)
         exit_ = self.tuning.threshold(self.name, self.exit)
         hold = self.tuning.hold_time(self.name, self.hold)
+        mark = self.tuning.mark(self.name)
         if value >= (exit_ if self.on else enter):
             if self._since is None:
                 self._since = now
             held = now - self._since
-            self.score = 0.5 + 0.5 * min(held / hold, 1.0)
+            self.score = mark + (max(1.0, mark) - mark) * min(held / hold, 1.0)
             self.on = self.on or held >= hold
         else:
             self._since, self.on = None, False
-            self.score = 0.5 * max(value, 0.0) / enter
+            self.score = 0.5 * max(value, 0.0) / self.enter
         return self.name if self.on else None
 
 
@@ -115,7 +116,7 @@ class BodyGestures:
             self._base_roll += alpha * (pose.roll - self._base_roll)
         self._last = now
         self.scores = {
-            JUMP: 1.0 if jump else 0.5 * min(max(rise, 0.0) / self.tuning.threshold(JUMP, JUMP_ENTER), 1.0),
+            JUMP: 1.0 if jump else min(0.5 * max(rise, 0.0) / JUMP_ENTER, max(1.0, self.tuning.mark(JUMP))),
             CROUCH: self._crouch.score, LEAN_LEFT: self._left.score, LEAN_RIGHT: self._right.score, ARMS_UP: self._arms.score,
         }
         active = tuple(g for g in (jump, crouch, left, right, arms) if g)

@@ -19,7 +19,7 @@ The main window shows the live camera with the MediaPipe hand mesh and face land
 - **Click ripples**: a ring spreads from the point of every click, in a colour per kind (left, right, middle, double)
 - **3D head axes** above the nose (X red, Y green, Z blue) with yaw / pitch / roll in degrees, and a **pinch gauge** between thumb and index finger with a tick where a pinch starts to count
 - **Diagnostics** tab: a live confidence bar for every gesture (built-in, custom hand and custom head) and the real rate or duration of each stage, from camera to cursor
-- **Tuning**: each built-in head, face and body gesture has a **Tune** button in the Diagnostics tab, with a sensitivity (threshold) slider and a hold-time slider (100% = default). Hand signs and custom gestures are not covered
+- **Threshold line**: in the Diagnostics tab, the bar of each built-in head, face and body gesture that has a threshold has a line where the threshold is. Drag it to make the gesture easier or harder to recognise. Hand signs, hand motions, nod / shake and custom gestures are not covered
 - **Start with the computer** (Settings): starts straight into the system tray without opening the window
 - Mouse control is off by default (and always off when the program starts)
 

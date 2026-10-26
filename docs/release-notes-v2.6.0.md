@@ -2,16 +2,13 @@
 
 ## New
 
-- **Tuning for each gesture**: in the Diagnostics tab every gesture that can be tuned has a **Tune** button (the button is labelled כוונון) next to its bar. It opens two sliders:
-  - **Sensitivity**: the threshold. Higher means the gesture is recognised with a smaller movement or pose; lower means it has to be more exact.
-  - **Hold time**: how long the pose has to be held before the gesture counts. Higher means it has to be held longer.
-
-  100% is the default, and the **Reset** button goes back to it. Each change is saved at once and applies from the next frame, without restarting.
-- **Which gestures**: sensitivity and hold time for head tilt left / right, head forward / back, mouth open, smile, raised brows, body crouch, body lean left / right. Sensitivity only for nod, shake and body jump. Hold time only for wink left / right, long blink and arms up.
-- **Not covered**: the built-in hand signs (pinch, OK, victory, and the rest), the hand motions (swipe, circle, wave) and your own custom gestures. Custom gestures keep the threshold that was learned when they were recorded.
+- **Threshold line on the Diagnostics bars**: the bar of each head, face and body gesture that has a threshold has a line where the threshold is (the default is the middle). Drag the line to the right, toward the edge the bar fills from, to make the gesture easier to recognise; drag it left to make it harder. Past the left edge the bar stretches, so the line stays visible. The new value is saved at once and applies from the next frame. With the keyboard, focus the bar and use the left and right arrow keys (left makes it harder, right easier).
+- **Reset**: a reset button appears next to a bar only when its line has been moved from the default, and puts the line back.
+- **Which gestures have the line**: head tilt left / right, head forward / back, mouth open, smile, raised brows, body jump, body crouch, body lean left / right.
 
 ## Notes
 
-- Nothing changes until a slider is moved. The values are saved in `settings.json` under `tuning`, and a value outside the range (50% to 200%) is refused.
-- The body-gesture thresholds of 2.5.0 can now be adjusted, so if a body gesture fires by mistake or does not fire, change its sensitivity or hold time in the Diagnostics tab and keep the values that work for you.
-- Checked with automated tests on synthetic landmarks only, with no camera. Not checked in this release: how the sliders feel on a real camera, and the macOS and Linux builds (the CI runs their tests on each push).
+- Nothing changes until a line is moved. The value is saved in `settings.json` under `tuning`. The line can go from almost the right edge (sensitivity 25) to four times the bar's length (sensitivity 0.125); a value outside that range is refused.
+- Not covered: the built-in hand signs (pinch, OK, victory, and the rest), the hand motions (swipe, circle, wave), nod / shake and your own custom gestures. Nod and shake count swings rather than a threshold, and the others have their own thresholds, so they have no line.
+- Arms up, the wink gestures and the long blink have no threshold, so they have no line. Their hold time can be set in `settings.json` under `tuning`, but there is no control for it in the Diagnostics tab in this version.
+- Checked with automated tests on synthetic landmarks only, with no camera. Not checked in this release: how the line feels to drag on a real camera, and the macOS and Linux builds (the CI runs their tests on each push).

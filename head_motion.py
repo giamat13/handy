@@ -46,17 +46,18 @@ class HeadTilt:
             enter = self.tuning.threshold(name, TILT_ENTER)
             limit = self.tuning.threshold(name, TILT_EXIT) if self._on == name else enter
             hold = self.tuning.hold_time(name, TILT_HOLD)
+            mark = self.tuning.mark(name)
             if angle >= limit:
                 if self._since[name] is None:
                     self._since[name] = now
                 held = now - self._since[name]
-                self.scores[name] = 0.5 + 0.5 * min(held / hold, 1.0)
+                self.scores[name] = mark + (max(1.0, mark) - mark) * min(held / hold, 1.0)
                 if held >= hold:
                     self._on = name
             else:
                 self._since[name] = None
                 self._on = None if self._on == name else self._on
-                self.scores[name] = 0.5 * max(angle, 0.0) / enter
+                self.scores[name] = 0.5 * max(angle, 0.0) / TILT_ENTER
         if self._on is not None:
             other = TILT_LEFT if self._on == TILT_RIGHT else TILT_RIGHT
             self._since[other] = None
@@ -110,17 +111,18 @@ class HeadLean:
             enter = self.tuning.threshold(name, LEAN_ENTER)
             limit = self.tuning.threshold(name, LEAN_EXIT) if self._on == name else enter
             hold = self.tuning.hold_time(name, LEAN_HOLD)
+            mark = self.tuning.mark(name)
             if amount >= limit:
                 if self._since[name] is None:
                     self._since[name] = now
                 held = now - self._since[name]
-                self.scores[name] = 0.5 + 0.5 * min(held / hold, 1.0)
+                self.scores[name] = mark + (max(1.0, mark) - mark) * min(held / hold, 1.0)
                 if held >= hold:
                     self._on = name
             else:
                 self._since[name] = None
                 self._on = None if self._on == name else self._on
-                self.scores[name] = 0.5 * max(amount, 0.0) / enter
+                self.scores[name] = 0.5 * max(amount, 0.0) / LEAN_ENTER
         return self._on
 
 

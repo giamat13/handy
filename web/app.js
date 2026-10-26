@@ -257,66 +257,83 @@ const NEAR = 0.3;   // מ-30% נחשב "קרוב" למחווה (הגבול עצ�
 let confKey = null;
 let confRows = [];
 
-// --- כוונון מחווה בלשונית האבחון: רגישות וזמן החזקה (tuning.py). 100% = ברירת המחדל ----
-const pctText = (x) => `${Math.round(Number(x) * 100)}%`;
+// --- הקו של הסף בפס: במחוות עם רגישות אפשר לגרור אותו (tuning.py). הפס מתמלא מימין, ולכן הקו נמדד מימין. 0.5 = ברירת המחדל
+function markOf(id) {
+  const sens = config.tuning?.values?.[id]?.sens;
+  return typeof sens === "number" ? 0.5 / sens : 0.5;
+}
 
-function makeTuning(g) {
-  const keys = config.tuning?.params?.[g.id];
-  if (!keys) return null;
-  const values = (config.tuning.values ??= {});
-  const panel = el("div", "tune");
-  panel.hidden = true;
-  const err = el("div", "err");
-  const sliders = {};
-  const saveAll = async (vals) => {
-    err.textContent = "";
-    try {
-      await api("/api/tuning", { gesture: g.id, ...vals });
-      values[g.id] = { ...values[g.id], ...vals };
-    } catch (e) {
-      err.textContent = e.message;
-    }
-  };
-  panel.append(el("span", "muted small", "100% = ברירת המחדל. כל שינוי נשמר מיד ונכנס לתוקף בפריים הבא"));
-  for (const key of keys) {
-    const [lo, hi] = config.tuning.limits[key];
-    const [label, hint] = config.tuning.labels[key];
-    const input = el("input");
-    input.type = "range";
-    input.min = lo;
-    input.max = hi;
-    input.step = 0.05;
-    input.value = typeof values[g.id]?.[key] === "number" ? values[g.id][key] : 1;
-    input.title = hint;
-    input.setAttribute("aria-label", `${label} של ${g.name}`);
-    const out = el("span", "val", pctText(input.value));
-    input.oninput = () => { out.textContent = pctText(input.value); };
-    input.onchange = () => saveAll({ [key]: Number(input.value) });
-    sliders[key] = { input, out };
-    const line = el("div", "tune-line");
-    line.append(el("span", "label", label), input, out);
-    panel.append(line);
-  }
+// הקו נשאר על הפס עד הקצה. מעבר לקצה הפס מתרחב (scale גדל), והקו נשאר על הקצה עם הסף החדש
+function makeMark(entry, g) {
+  const [lo, hi] = config.tuning.limits.sens;   // רגישות בין lo ל-hi = הקו בין 0.5 / hi ל-0.5 / lo
+  const track = entry.track;
+  const clampMark = (m) => Math.min(Math.max(m, 0.5 / hi), 0.5 / lo);
   const reset = el("button", "small-btn", "איפוס");
-  reset.onclick = () => {
-    const vals = {};
-    for (const key of keys) {
-      sliders[key].input.value = 1;
-      sliders[key].out.textContent = pctText(1);
-      vals[key] = 1;
+  // show: מזיז את הקו ואת קנה המידה של הפס. כפתור האיפוס מופיע רק כשהקו זז מברירת המחדל
+  const show = (m, scale) => {
+    entry.mark = m;
+    entry.scale = scale;
+    track.style.setProperty("--mark", `${(m / scale) * 100}%`);
+    track.setAttribute("aria-valuenow", String(Math.round(m * 100)));
+    reset.hidden = Math.abs(m - 0.5) < 0.005;
+  };
+  const save = async (m, before) => {   // שומר בשרת; אם נכשל מחזיר את הקו למקום שהיה
+    const sens = Math.round((0.5 / m) * 1000) / 1000;
+    try {
+      await api("/api/tuning", { gesture: g.id, sens });
+      const values = (config.tuning.values ??= {});
+      values[g.id] = { ...values[g.id], sens };
+    } catch (e) {
+      show(before.mark, before.scale);
+      track.title = e.message;
     }
-    saveAll(vals);
   };
-  const actions = el("div", "tune-actions");
-  actions.append(reset);
-  panel.append(actions, err);
-  const button = el("button", "small-btn", "כוונון");
-  button.setAttribute("aria-expanded", "false");
-  button.onclick = () => {
-    panel.hidden = !panel.hidden;
-    button.setAttribute("aria-expanded", String(!panel.hidden));
+  reset.onclick = () => {
+    const before = { mark: entry.mark, scale: entry.scale };
+    show(0.5, 1);
+    save(0.5, before);
   };
-  return { button, panel };
+  entry.row.append(reset);
+  entry.row.classList.add("movable");
+  // הגרירה: הערך מתחת לסמן = מיקומו בפס כפול הקנה-מידה שהיה בתחילת הגרירה. מעבר לקצה הקנה-מידה גדל, כך שהקו נשאר בקצה
+  let drag = null;   // {before, anchor}: הקו והקנה-מידה לפני הגרירה, או null כשלא גוררים
+  const moveTo = (ev) => {
+    const r = track.getBoundingClientRect();
+    const value = Math.max((r.right - ev.clientX) / r.width, 0) * drag.anchor;
+    const m = clampMark(value);
+    show(m, Math.max(drag.anchor, m));
+  };
+  track.addEventListener("pointerdown", (ev) => {
+    drag = { before: { mark: entry.mark, scale: entry.scale }, anchor: entry.scale };
+    track.setPointerCapture(ev.pointerId);
+    moveTo(ev);
+  });
+  track.addEventListener("pointermove", (ev) => { if (drag) moveTo(ev); });
+  track.addEventListener("pointerup", (ev) => {
+    if (!drag) return;
+    moveTo(ev);
+    const { before } = drag;
+    drag = null;
+    if (Math.abs(entry.mark - before.mark) > 1e-6) save(entry.mark, before);
+  });
+  track.addEventListener("pointercancel", () => {
+    if (drag) show(drag.before.mark, drag.before.scale);
+    drag = null;
+  });
+  track.classList.add("movable");
+  track.tabIndex = 0;
+  track.setAttribute("role", "slider");
+  track.setAttribute("aria-label", `קו הסף של ${g.name}`);
+  track.addEventListener("keydown", (ev) => {
+    const step = ev.key === "ArrowLeft" ? 0.02 : ev.key === "ArrowRight" ? -0.02 : 0;
+    if (!step) return;
+    ev.preventDefault();
+    const before = { mark: entry.mark, scale: entry.scale };
+    const m = clampMark(before.mark + step);
+    show(m, Math.max(before.scale, m));
+    save(m, before);
+  });
+  show(entry.mark, Math.max(1, entry.mark));
 }
 
 function buildConf() {
@@ -335,11 +352,10 @@ function buildConf() {
       track.append(fill);
       const row = el("div", "bar-row");
       row.append(label, track, pct);
-      const tune = makeTuning(g);
-      if (tune) { row.classList.add("tunable"); row.append(tune.button); }
       box.append(row);
-      if (tune) box.append(tune.panel);
-      confRows.push({ id: g.id, name: g.name, row, fill, pct });
+      const entry = { id: g.id, name: g.name, row, track, fill, pct, mark: markOf(g.id), scale: 1 };
+      if (config.tuning?.params?.[g.id]?.includes("sens")) makeMark(entry, g);
+      confRows.push(entry);
     }
   }
   confKey = config.version;
@@ -350,22 +366,25 @@ function renderConf(st) {
   if (confKey !== config.version) buildConf();
   const conf = st.conf || {};
   for (const r of confRows) {
-    const v = conf[r.id] || 0;
+    const s = conf[r.id] || 0;   // הציון: הקו של המחווה הוא r.mark, והפס מתמלא לפי הקנה-מידה r.scale
+    const v = Math.min(s / r.scale, 1);
     r.fill.style.width = `${Math.round(v * 100)}%`;
     r.pct.textContent = `${Math.round(v * 100)}%`;
-    r.row.classList.toggle("hit", v >= 0.5);
-    r.row.classList.toggle("close", v >= NEAR && v < 0.5);
+    r.track.style.setProperty("--mark", `${(r.mark / r.scale) * 100}%`);
+    r.row.classList.toggle("hit", s >= r.mark);
+    r.row.classList.toggle("close", s >= r.mark * NEAR / 0.5 && s < r.mark);
   }
-  const ranked = confRows.map((r) => ({ name: r.name, v: conf[r.id] || 0 })).sort((a, b) => b.v - a.v);
+  // n: הציון ביחס לקו של המחווה (0.5 = על הקו), כדי שההשוואות למטה יהיו זהות לכל מחווה
+  const ranked = confRows.map((r) => { const s = conf[r.id] || 0; return { name: r.name, v: Math.min(s / r.scale, 1), n: s * 0.5 / r.mark }; }).sort((a, b) => b.n - a.n);
   const [a, b] = ranked;
   const pc = (x) => `${Math.round(x.v * 100)}%`;
   const note = $("#conf-note");
   let text = "לא רואים יד או ראש מול המצלמה", bad = false;
   if (a && a.v > 0) {
-    if (a.v >= 0.5 && b && b.v >= NEAR) { text = `"${a.name}" מזוהה (${pc(a)}), אבל גם "${b.name}" קרובה (${pc(b)}): הן עלולות להתבלבל`; bad = true; }
-    else if (a.v >= 0.5) text = `מזוהה: "${a.name}" (${pc(a)})`;
-    else if (b && b.v >= NEAR && a.v >= NEAR) { text = `"${a.name}" (${pc(a)}) ו"${b.name}" (${pc(b)}) קרובות לגבול ושתיהן עוד לא מזוהות`; bad = true; }
-    else if (a.v >= NEAR) text = `הכי קרובה: "${a.name}" (${pc(a)}), חסר עוד קצת`;
+    if (a.n >= 0.5 && b && b.n >= NEAR) { text = `"${a.name}" מזוהה (${pc(a)}), אבל גם "${b.name}" קרובה (${pc(b)}): הן עלולות להתבלבל`; bad = true; }
+    else if (a.n >= 0.5) text = `מזוהה: "${a.name}" (${pc(a)})`;
+    else if (b && b.n >= NEAR && a.n >= NEAR) { text = `"${a.name}" (${pc(a)}) ו"${b.name}" (${pc(b)}) קרובות לגבול ושתיהן עוד לא מזוהות`; bad = true; }
+    else if (a.n >= NEAR) text = `הכי קרובה: "${a.name}" (${pc(a)}), חסר עוד קצת`;
     else text = "אין מחווה קרובה";
   }
   note.textContent = text;

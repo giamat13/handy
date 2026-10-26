@@ -36,7 +36,7 @@ def measures(face_px):
 
 
 class _Trigger:
-    """סף עם היסטרזיס ומשך החזקה. score: 0 עד 0.5 עד שחוצים את הסף, אחר כך 0.5 עד 1 לפי זמן ההחזקה. הכוונון נקרא בכל פריים."""
+    """סף עם היסטרזיס ומשך החזקה. score: 0 עד הקו של הסף (0.5 בברירת המחדל), אחר כך עד 1 לפי זמן ההחזקה. הכוונון נקרא בכל פריים."""
 
     def __init__(self, gid, enter, exit_, hold, tuning):
         self.gid, self.enter, self.exit, self.hold, self.tuning = gid, enter, exit_, hold, tuning
@@ -51,16 +51,17 @@ class _Trigger:
         enter = self.tuning.threshold(self.gid, self.enter)
         exit_ = self.tuning.threshold(self.gid, self.exit)
         hold = self.tuning.hold_time(self.gid, self.hold)
+        mark = self.tuning.mark(self.gid)
         if amount >= (exit_ if self.on else enter):
             if self.since is None:
                 self.since = now
             held = now - self.since
-            self.score = 0.5 + 0.5 * min(held / hold, 1.0)
+            self.score = mark + (max(1.0, mark) - mark) * min(held / hold, 1.0)
             self.on = held >= hold
         else:
             self.since = None
             self.on = False
-            self.score = 0.5 * min(max(amount / enter, 0.0), 1.0)
+            self.score = 0.5 * max(amount, 0.0) / self.enter
         return self.on
 
 

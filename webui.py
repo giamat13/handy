@@ -14,7 +14,7 @@ import actions
 import autostart
 import commands
 from custom_gestures import KIND_HAND, KIND_HEAD, KINDS, Recorder, validate_name
-from tuning import LABELS, LIMITS, TUNABLE, clean_value
+from tuning import LIMITS, TUNABLE, clean_value
 from version import FULL_VERSION
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
@@ -123,7 +123,7 @@ class Backend:
             "actions": [{"id": k, "label": v, "param": k in actions.PARAM_ACTIONS} for k, v in actions.ACTIONS.items()],
             "limits": {k: list(v) for k, v in RANGES.items()},
             "tuning": {"params": {g: list(p) for g, p in TUNABLE.items()}, "limits": {k: list(v) for k, v in LIMITS.items()},
-                       "labels": {k: list(v) for k, v in LABELS.items()}, "values": c.get("tuning", {})},
+                       "values": c.get("tuning", {})},
         }
 
     def perf(self):
