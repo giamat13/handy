@@ -5,6 +5,8 @@
 אחרת או כתפיים לא סימטריות לא נחשבות. כל המדידות ביחס לרוחב הכתפיים, לכן המרחק מהמצלמה לא משנה."""
 import math
 
+from tuning import Tuning
+
 JUMP, CROUCH = "body_jump", "body_crouch"
 LEAN_LEFT, LEAN_RIGHT = "body_lean_left", "body_lean_right"
 ARMS_UP = "body_arms_up"
@@ -26,25 +28,28 @@ BODY_TAU = 6.0       # שניות: קצב ההסתגלות של הרגיל (גו
 
 
 class _Hold:
-    """תנוחה שמחזיקים: מזוהה כשהערך עובר enter ונשאר שם hold שניות, ונגמר כשהוא יורד מתחת ל-exit."""
+    """תנוחה שמחזיקים: מזוהה כשהערך עובר enter ונשאר שם hold שניות, ונגמר כשהוא יורד מתחת ל-exit. name הוא מזהה המחווה (לכוונון)."""
 
-    def __init__(self, name, enter, exit_, hold):
-        self.name, self.enter, self.exit, self.hold = name, enter, exit_, hold
+    def __init__(self, name, enter, exit_, hold, tuning):
+        self.name, self.enter, self.exit, self.hold, self.tuning = name, enter, exit_, hold, tuning
         self.on = False
         self.score = 0.0      # 0.5 = הערך הדרוש, 1 = גם הוחזק מספיק זמן (לתצוגת האבחון)
         self._since = None    # מתי הערך עבר את הסף
 
     def update(self, value, now):
         """value באותה יחידה כמו enter. מחזיר את שם המחווה כל עוד היא פעילה, אחרת None."""
-        if value >= (self.exit if self.on else self.enter):
+        enter = self.tuning.threshold(self.name, self.enter)
+        exit_ = self.tuning.threshold(self.name, self.exit)
+        hold = self.tuning.hold_time(self.name, self.hold)
+        if value >= (exit_ if self.on else enter):
             if self._since is None:
                 self._since = now
             held = now - self._since
-            self.score = 0.5 + 0.5 * min(held / self.hold, 1.0)
-            self.on = self.on or held >= self.hold
+            self.score = 0.5 + 0.5 * min(held / hold, 1.0)
+            self.on = self.on or held >= hold
         else:
             self._since, self.on = None, False
-            self.score = 0.5 * max(value, 0.0) / self.enter
+            self.score = 0.5 * max(value, 0.0) / enter
         return self.name if self.on else None
 
 
@@ -57,8 +62,12 @@ def _arms_up(pose):
 class BodyGestures:
     """מחוות הגוף של הפריים. update מחזיר tuple של המחוות הפעילות עכשיו (אפשר כמה יחד), או None."""
 
-    def __init__(self):
+    def __init__(self, tuning=None):
+        self.tuning = tuning if tuning is not None else Tuning()
         self.reset()
+
+    def _hold(self, name, enter, exit_, hold):
+        return _Hold(name, enter, exit_, hold, self.tuning)
 
     def reset(self):
         self._base_y = self._base_roll = self._last = None   # הרגיל: גובה אמצע הכתפיים והטיתן
@@ -67,10 +76,10 @@ class BodyGestures:
         self._spent = False         # העלייה הנוכחית לא תיספר כקפיצה (איטית, או שנשארה למעלה). מתעלמים ממנה עד שהכתפיים יורדות
         self._jump_until = 0.0      # עד מתי מציגים את הקפיצה
         self._lean_since = None     # מתי התחילה הרכינה הנוכחית (לתקרה LEAN_MAX)
-        self._crouch = _Hold(CROUCH, CROUCH_ENTER, CROUCH_EXIT, CROUCH_HOLD)
-        self._right = _Hold(LEAN_RIGHT, LEAN_ENTER, LEAN_EXIT, LEAN_HOLD)
-        self._left = _Hold(LEAN_LEFT, LEAN_ENTER, LEAN_EXIT, LEAN_HOLD)
-        self._arms = _Hold(ARMS_UP, 1.0, 1.0, ARMS_HOLD)
+        self._crouch = self._hold(CROUCH, CROUCH_ENTER, CROUCH_EXIT, CROUCH_HOLD)
+        self._right = self._hold(LEAN_RIGHT, LEAN_ENTER, LEAN_EXIT, LEAN_HOLD)
+        self._left = self._hold(LEAN_LEFT, LEAN_ENTER, LEAN_EXIT, LEAN_HOLD)
+        self._arms = self._hold(ARMS_UP, 1.0, 1.0, ARMS_HOLD)
         self.scores = {JUMP: 0.0, CROUCH: 0.0, LEAN_LEFT: 0.0, LEAN_RIGHT: 0.0, ARMS_UP: 0.0}
 
     def update(self, pose, now):
@@ -93,8 +102,8 @@ class BodyGestures:
                 self._lean_since = now
             if now - self._lean_since > LEAN_MAX:   # רכינה שנמשכת כל כך הרבה היא התנוחה החדשה: מתחילים מהרגיל החדש, והרכינה נגמרת
                 self._base_roll = pose.roll
-                self._right = _Hold(LEAN_RIGHT, LEAN_ENTER, LEAN_EXIT, LEAN_HOLD)
-                self._left = _Hold(LEAN_LEFT, LEAN_ENTER, LEAN_EXIT, LEAN_HOLD)
+                self._right = self._hold(LEAN_RIGHT, LEAN_ENTER, LEAN_EXIT, LEAN_HOLD)
+                self._left = self._hold(LEAN_LEFT, LEAN_ENTER, LEAN_EXIT, LEAN_HOLD)
                 self._lean_since = None
                 right = left = None
         arms = self._arms.update(1.0 if _arms_up(pose) else 0.0, now)
@@ -106,7 +115,7 @@ class BodyGestures:
             self._base_roll += alpha * (pose.roll - self._base_roll)
         self._last = now
         self.scores = {
-            JUMP: 1.0 if jump else 0.5 * min(max(rise, 0.0) / JUMP_ENTER, 1.0),
+            JUMP: 1.0 if jump else 0.5 * min(max(rise, 0.0) / self.tuning.threshold(JUMP, JUMP_ENTER), 1.0),
             CROUCH: self._crouch.score, LEAN_LEFT: self._left.score, LEAN_RIGHT: self._right.score, ARMS_UP: self._arms.score,
         }
         active = tuple(g for g in (jump, crouch, left, right, arms) if g)
@@ -114,6 +123,7 @@ class BodyGestures:
 
     def _jump(self, rise, now):
         """קפיצה: הכתפיים עולות מהר מעל הרגיל, ואז חוזרות אליו תוך JUMP_LAND שניות. נספרת פעם אחת, ומוצגת JUMP_SHOW שניות."""
+        jump_enter = self.tuning.threshold(JUMP, JUMP_ENTER)
         if rise < JUMP_START:
             if self._peak is not None and now - self._peak <= JUMP_LAND:
                 self._jump_until = now + JUMP_SHOW   # חזרו לרגיל בזמן: קפיצה
@@ -125,7 +135,7 @@ class BodyGestures:
             if not self._spent:
                 if self._peak is None and now - self._rise_since > JUMP_WINDOW:
                     self._spent = True                     # עלייה איטית, לא קפיצה
-                elif self._peak is None and rise >= JUMP_ENTER:
+                elif self._peak is None and rise >= jump_enter:
                     self._peak = now                       # מהר מספיק: מחכים לראות אם הן חוזרות
                 elif self._peak is not None and now - self._peak > JUMP_LAND:
                     self._peak, self._spent = None, True   # נשארו למעלה: הרמה, לא קפיצה

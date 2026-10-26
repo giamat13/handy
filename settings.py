@@ -121,6 +121,7 @@ DEFAULTS = {
     "sensitivity": 1.0,
     "smoothing": 0.5,
     "bindings": DEFAULT_BINDINGS,
+    "tuning": {},              # כוונון מחוות: {מזהה: {"sens": x, "hold": y}}, רק מה שהמשתמש שינה (tuning.py)
 }
 
 _migrated = False
@@ -175,6 +176,8 @@ def load():
     data["control_enabled"] = False  # גם אם F8 או מחווה הדליקו אותה לפני שההגדרות נשמרו: העכבר לא זז עד שמדליקים במכוון
     if data["control_hand"] not in ("right", "left", "both"):
         data["control_hand"] = "both"
+    if not isinstance(data["tuning"], dict):   # קובץ פגום: בלי כוונון, המחוות עובדות בברירת המחדל
+        data["tuning"] = {}
     return data
 
 

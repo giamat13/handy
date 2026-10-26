@@ -7,6 +7,8 @@ import math
 
 import numpy as np
 
+from tuning import Tuning
+
 MOUTH_OPEN, SMILE, BROWS_UP = "face_mouth_open", "face_smile", "face_brows_up"
 
 _EYE_OUTER = (33, 263)
@@ -34,10 +36,10 @@ def measures(face_px):
 
 
 class _Trigger:
-    """סף עם היסטרזיס ומשך החזקה. score: 0 עד 0.5 עד שחוצים את הסף, אחר כך 0.5 עד 1 לפי זמן ההחזקה."""
+    """סף עם היסטרזיס ומשך החזקה. score: 0 עד 0.5 עד שחוצים את הסף, אחר כך 0.5 עד 1 לפי זמן ההחזקה. הכוונון נקרא בכל פריים."""
 
-    def __init__(self, enter, exit_, hold):
-        self.enter, self.exit, self.hold = enter, exit_, hold
+    def __init__(self, gid, enter, exit_, hold, tuning):
+        self.gid, self.enter, self.exit, self.hold, self.tuning = gid, enter, exit_, hold, tuning
         self.reset()
 
     def reset(self):
@@ -46,24 +48,28 @@ class _Trigger:
         self.score = 0.0
 
     def update(self, amount, now):
-        if amount >= (self.exit if self.on else self.enter):
+        enter = self.tuning.threshold(self.gid, self.enter)
+        exit_ = self.tuning.threshold(self.gid, self.exit)
+        hold = self.tuning.hold_time(self.gid, self.hold)
+        if amount >= (exit_ if self.on else enter):
             if self.since is None:
                 self.since = now
             held = now - self.since
-            self.score = 0.5 + 0.5 * min(held / self.hold, 1.0)
-            self.on = held >= self.hold
+            self.score = 0.5 + 0.5 * min(held / hold, 1.0)
+            self.on = held >= hold
         else:
             self.since = None
             self.on = False
-            self.score = 0.5 * min(max(amount / self.enter, 0.0), 1.0)
+            self.score = 0.5 * min(max(amount / enter, 0.0), 1.0)
         return self.on
 
 
 class ExpressionGestures:
-    def __init__(self):
-        self._open = _Trigger(OPEN_ENTER, OPEN_EXIT, OPEN_HOLD)
-        self._smile = _Trigger(SMILE_ENTER, SMILE_EXIT, SMILE_HOLD)
-        self._brows = _Trigger(BROWS_ENTER, BROWS_EXIT, BROWS_HOLD)
+    def __init__(self, tuning=None):
+        self.tuning = tuning if tuning is not None else Tuning()
+        self._open = _Trigger(MOUTH_OPEN, OPEN_ENTER, OPEN_EXIT, OPEN_HOLD, self.tuning)
+        self._smile = _Trigger(SMILE, SMILE_ENTER, SMILE_EXIT, SMILE_HOLD, self.tuning)
+        self._brows = _Trigger(BROWS_UP, BROWS_ENTER, BROWS_EXIT, BROWS_HOLD, self.tuning)
         self.reset()
 
     def reset(self):

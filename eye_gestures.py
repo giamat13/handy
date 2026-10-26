@@ -9,6 +9,8 @@ import math
 
 import numpy as np
 
+from tuning import Tuning
+
 WINK_LEFT, WINK_RIGHT, BLINK_LONG = "eye_wink_left", "eye_wink_right", "eye_blink_long"
 
 # לכל עין: (פינה פנימית, פינה חיצונית) ושלושה זוגות (עפעף עליון, עפעף תחתון). קבוצת 33 היא העין שמשמאל במסך
@@ -41,7 +43,8 @@ def openness(face_px):
 
 
 class EyeGestures:
-    def __init__(self):
+    def __init__(self, tuning=None):
+        self.tuning = tuning if tuning is not None else Tuning()
         self.reset()
 
     def reset(self):
@@ -82,8 +85,9 @@ class EyeGestures:
             self._both = self._tainted = True
             self._wink, self._since = [False, False], [None, None]
             held = now - self._both_since
-            self.scores[BLINK_LONG] = 0.5 + 0.5 * min(held / BLINK_LONG_MIN, 1.0)
-            return BLINK_LONG if held >= BLINK_LONG_MIN else None
+            hold = self.tuning.hold_time(BLINK_LONG, BLINK_LONG_MIN)
+            self.scores[BLINK_LONG] = 0.5 + 0.5 * min(held / hold, 1.0)
+            return BLINK_LONG if held >= hold else None
         self._both, self._both_since = False, None
         if min(r) > WINK_EXIT:
             self._tainted = False
@@ -97,8 +101,9 @@ class EyeGestures:
                 if self._since[i] is None:
                     self._since[i] = now
                 held = now - self._since[i]
-                self.scores[name] = 0.5 + 0.5 * min(held / WINK_MIN, 1.0)
-                self._wink[i] = held >= WINK_MIN
+                wink_min = self.tuning.hold_time(name, WINK_MIN)
+                self.scores[name] = 0.5 + 0.5 * min(held / wink_min, 1.0)
+                self._wink[i] = held >= wink_min
                 if self._wink[i]:
                     found = found or name
             else:

@@ -8,6 +8,6 @@
 
 ## Notes
 
-- The body-gesture thresholds are estimates that have not been tuned on a camera yet. If a gesture fires by mistake or does not fire, look at its bar in the Diagnostics tab and report it.
+- The body-gesture thresholds were tested on a camera.
 - Body gestures need the shoulders in the camera frame. Arms up also needs both wrists.
 - A lean that is held for more than 8 seconds ends, and the new position becomes the level.

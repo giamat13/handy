@@ -18,6 +18,7 @@ from custom_gestures import KIND_HEAD, CustomMatcher, pick_sign
 from head_motion import HeadLean, HeadMotion, HeadTilt
 from perf import RateMeter, TimeMeter
 from signs import Stabilizer, assign_slots, classify_hand, sign_scores
+from tuning import Tuning
 
 SLOT_LABELS = ("Left", "Right")  # signs[0] = יד שמאל, signs[1] = יד ימין (כפי שהיא נראית למשתמש: הווידאו הפוך כמו מראה)
 # signs[2] = מחווה מותאמת של הראש, signs[3] = הנהון / ניעור, signs[4] = הטיית ראש, signs[5] = ראש קדימה / אחורה, signs[6] = קריצה / מצמוץ, signs[7] = פה / חיוך / גבות (tuple, כי כמה יכולות להיות פעילות יחד) (mouse_control.HEAD_SLOTS)
@@ -38,19 +39,20 @@ HAND_HOLD = 1.0      # שניות שיד שנמצאה נשארת מוצגת בל
 
 
 class Tracker:
-    def __init__(self, camera, controller=None, store=None):
+    def __init__(self, camera, controller=None, store=None, tuning=None):
         self.camera = camera
         self.controller = controller
         self.store = store  # מחוות מותאמות (CustomGestureStore) או None
+        self.tuning = tuning if tuning is not None else Tuning()   # כוונון הרגישות וזמני ההחזקה של המחוות (tuning.py)
         self.matchers = [CustomMatcher(store), CustomMatcher(store)] if store is not None else None
         self.head_matcher = CustomMatcher(store, KIND_HEAD) if store is not None else None
-        self.head_motion = HeadMotion()   # הנהון / ניעור ראש מתוך תנועת הזוויות
-        self.head_tilt = HeadTilt()       # הטיית ראש לכתף מתוך זווית ה-roll
-        self.head_lean = HeadLean()       # ראש קדימה / אחורה מתוך גודל הפנים
-        self.eyes = EyeGestures()         # קריצה ומצמוץ ארוך מתוך פתיחות העיניים
+        self.head_motion = HeadMotion(self.tuning)   # הנהון / ניעור ראש מתוך תנועת הזוויות
+        self.head_tilt = HeadTilt(self.tuning)       # הטיית ראש לכתף מתוך זווית ה-roll
+        self.head_lean = HeadLean(self.tuning)       # ראש קדימה / אחורה מתוך גודל הפנים
+        self.eyes = EyeGestures(self.tuning)         # קריצה ומצמוץ ארוך מתוך פתיחות העיניים
         self.hand_motion = HandMotions()  # החלקה, עיגול ונפנוף של יד פתוחה
-        self.expressions = ExpressionGestures()   # פה פתוח, חיוך וגבות מורמות
-        self.body = BodyGestures()        # קפיצה, התכופפות, רכינה ושתי ידיים למעלה מתוך הגוף העליון
+        self.expressions = ExpressionGestures(self.tuning)   # פה פתוח, חיוך וגבות מורמות
+        self.body = BodyGestures(self.tuning)        # קפיצה, התכופפות, רכינה ושתי ידיים למעלה מתוך הגוף העליון
         self.gaze_calib = gaze.GazeCalibration()  # כיול המבט: אוסף דגימות כשהממשק מציג נקודה (gaze.py)
         self.recorder = None  # Recorder פעיל בזמן הקלטת מחווה: אז לא מפעילים פעולות
         self.sign_stabs = [Stabilizer(3), Stabilizer(3)]

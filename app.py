@@ -19,6 +19,7 @@ from mouse_control import MouseController
 from render import Renderer
 from tracker import Tracker
 from tray import Tray
+from tuning import Tuning
 from update_service import UpdateService
 from webui import Backend, Server
 
@@ -65,7 +66,7 @@ class Application:
             return
         self.camera = Camera().start()
         self.mouse = MouseController(self.cfg).start_glide()
-        self.tracker = Tracker(self.camera, self.mouse, self.store).start()
+        self.tracker = Tracker(self.camera, self.mouse, self.store, Tuning(self.cfg)).start()   # הכוונון נקרא מהמילון החי של ההגדרות
         self.renderer = Renderer(self.tracker, self.mouse, self.cfg, lambda: {**actions.GESTURES, **actions.HAND_MOTIONS, **actions.HEAD_GESTURES, **actions.BODY_GESTURES, **self.store.names()}).start()
         self.backend = Backend(self.cfg, self.store, self.tracker, self.mouse, self.renderer, self.updates, settings.save,
                                self.stop_event.set, pick_file=pick_file)

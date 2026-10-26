@@ -257,6 +257,68 @@ const NEAR = 0.3;   // מ-30% נחשב "קרוב" למחווה (הגבול עצ�
 let confKey = null;
 let confRows = [];
 
+// --- כוונון מחווה בלשונית האבחון: רגישות וזמן החזקה (tuning.py). 100% = ברירת המחדל ----
+const pctText = (x) => `${Math.round(Number(x) * 100)}%`;
+
+function makeTuning(g) {
+  const keys = config.tuning?.params?.[g.id];
+  if (!keys) return null;
+  const values = (config.tuning.values ??= {});
+  const panel = el("div", "tune");
+  panel.hidden = true;
+  const err = el("div", "err");
+  const sliders = {};
+  const saveAll = async (vals) => {
+    err.textContent = "";
+    try {
+      await api("/api/tuning", { gesture: g.id, ...vals });
+      values[g.id] = { ...values[g.id], ...vals };
+    } catch (e) {
+      err.textContent = e.message;
+    }
+  };
+  panel.append(el("span", "muted small", "100% = ברירת המחדל. כל שינוי נשמר מיד ונכנס לתוקף בפריים הבא"));
+  for (const key of keys) {
+    const [lo, hi] = config.tuning.limits[key];
+    const [label, hint] = config.tuning.labels[key];
+    const input = el("input");
+    input.type = "range";
+    input.min = lo;
+    input.max = hi;
+    input.step = 0.05;
+    input.value = typeof values[g.id]?.[key] === "number" ? values[g.id][key] : 1;
+    input.title = hint;
+    input.setAttribute("aria-label", `${label} של ${g.name}`);
+    const out = el("span", "val", pctText(input.value));
+    input.oninput = () => { out.textContent = pctText(input.value); };
+    input.onchange = () => saveAll({ [key]: Number(input.value) });
+    sliders[key] = { input, out };
+    const line = el("div", "tune-line");
+    line.append(el("span", "label", label), input, out);
+    panel.append(line);
+  }
+  const reset = el("button", "small-btn", "איפוס");
+  reset.onclick = () => {
+    const vals = {};
+    for (const key of keys) {
+      sliders[key].input.value = 1;
+      sliders[key].out.textContent = pctText(1);
+      vals[key] = 1;
+    }
+    saveAll(vals);
+  };
+  const actions = el("div", "tune-actions");
+  actions.append(reset);
+  panel.append(actions, err);
+  const button = el("button", "small-btn", "כוונון");
+  button.setAttribute("aria-expanded", "false");
+  button.onclick = () => {
+    panel.hidden = !panel.hidden;
+    button.setAttribute("aria-expanded", String(!panel.hidden));
+  };
+  return { button, panel };
+}
+
 function buildConf() {
   const groups = [["מחוות יד", config.groups.hand], ["תנועות יד", config.groups.motion], ["מחוות יד שלי", config.groups.custom.filter((g) => g.kind !== "head")],
     ["מחוות ראש מובנות", config.groups.head], ["מחוות גוף מובנות", config.groups.body], ["מחוות ראש שלי", config.groups.custom.filter((g) => g.kind === "head")]];
@@ -273,7 +335,10 @@ function buildConf() {
       track.append(fill);
       const row = el("div", "bar-row");
       row.append(label, track, pct);
+      const tune = makeTuning(g);
+      if (tune) { row.classList.add("tunable"); row.append(tune.button); }
       box.append(row);
+      if (tune) box.append(tune.panel);
       confRows.push({ id: g.id, name: g.name, row, fill, pct });
     }
   }

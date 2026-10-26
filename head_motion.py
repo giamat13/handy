@@ -4,6 +4,8 @@
 בחלון זמן קצר, כשהציר השני כמעט לא זז."""
 from collections import deque
 
+from tuning import Tuning
+
 NOD, SHAKE = "nod", "shake"
 
 WINDOW = 1.6         # שניות: כל התנועות חייבות להיכנס בחלון הזה (תנועה איטית או הסתכלות חד־פעמית למטה לא נחשבות)
@@ -23,7 +25,8 @@ TILT_HOLD = 0.5      # שניות שצריך להחזיק את ההטיה לפנ
 class HeadTilt:
     """הטיית ראש לכתף (roll): תנוחה שמחזיקים, ולא תנועה. נשארת מזוהה כל עוד הראש מוטה, ואפשר לקשור אליה גלילה או קיצור מקשים."""
 
-    def __init__(self):
+    def __init__(self, tuning=None):
+        self.tuning = tuning if tuning is not None else Tuning()
         self._since = {TILT_LEFT: None, TILT_RIGHT: None}   # מתי הזווית עברה את הסף
         self._on = None
         self.scores = {TILT_LEFT: 0.0, TILT_RIGHT: 0.0}      # 0.5 = הזווית הדרושה, 1 = גם הוחזקה מספיק זמן
@@ -40,18 +43,20 @@ class HeadTilt:
             return None
         roll = pose.roll
         for name, angle in ((TILT_RIGHT, roll), (TILT_LEFT, -roll)):
-            limit = TILT_EXIT if self._on == name else TILT_ENTER
+            enter = self.tuning.threshold(name, TILT_ENTER)
+            limit = self.tuning.threshold(name, TILT_EXIT) if self._on == name else enter
+            hold = self.tuning.hold_time(name, TILT_HOLD)
             if angle >= limit:
                 if self._since[name] is None:
                     self._since[name] = now
                 held = now - self._since[name]
-                self.scores[name] = 0.5 + 0.5 * min(held / TILT_HOLD, 1.0)
-                if held >= TILT_HOLD:
+                self.scores[name] = 0.5 + 0.5 * min(held / hold, 1.0)
+                if held >= hold:
                     self._on = name
             else:
                 self._since[name] = None
                 self._on = None if self._on == name else self._on
-                self.scores[name] = 0.5 * max(angle, 0.0) / TILT_ENTER
+                self.scores[name] = 0.5 * max(angle, 0.0) / enter
         if self._on is not None:
             other = TILT_LEFT if self._on == TILT_RIGHT else TILT_RIGHT
             self._since[other] = None
@@ -69,7 +74,8 @@ LEAN_TAU = 6.0       # שניות: קצב ההסתגלות של "הגודל הר
 class HeadLean:
     """ראש קדימה או אחורה לפי שינוי בגודל הפנים בפריים (אין עומק אמיתי). תנוחה שמחזיקים, כמו הטיית ראש."""
 
-    def __init__(self):
+    def __init__(self, tuning=None):
+        self.tuning = tuning if tuning is not None else Tuning()
         self._base = None            # הגודל הרגיל של הפנים, ממוצע איטי
         self._last = None            # זמן העדכון האחרון
         self._since = {LEAN_FORWARD: None, LEAN_BACK: None}
@@ -101,18 +107,20 @@ class HeadLean:
             self._base += alpha * (pose.size - self._base)
         self._last = now
         for name, amount in ((LEAN_FORWARD, change), (LEAN_BACK, -change)):
-            limit = LEAN_EXIT if self._on == name else LEAN_ENTER
+            enter = self.tuning.threshold(name, LEAN_ENTER)
+            limit = self.tuning.threshold(name, LEAN_EXIT) if self._on == name else enter
+            hold = self.tuning.hold_time(name, LEAN_HOLD)
             if amount >= limit:
                 if self._since[name] is None:
                     self._since[name] = now
                 held = now - self._since[name]
-                self.scores[name] = 0.5 + 0.5 * min(held / LEAN_HOLD, 1.0)
-                if held >= LEAN_HOLD:
+                self.scores[name] = 0.5 + 0.5 * min(held / hold, 1.0)
+                if held >= hold:
                     self._on = name
             else:
                 self._since[name] = None
                 self._on = None if self._on == name else self._on
-                self.scores[name] = 0.5 * max(amount, 0.0) / LEAN_ENTER
+                self.scores[name] = 0.5 * max(amount, 0.0) / enter
         return self._on
 
 
@@ -138,7 +146,8 @@ def swings(values, size):
 
 
 class HeadMotion:
-    def __init__(self):
+    def __init__(self, tuning=None):
+        self.tuning = tuning if tuning is not None else Tuning()
         self._samples = deque()      # (זמן, yaw, pitch)
         self._quiet_until = 0.0
         self._shown = None           # (שם המחווה, עד מתי מציגים אותה)
@@ -166,7 +175,7 @@ class HeadMotion:
         pitch = [s[2] for s in self._samples]
         found = None
         for name, main, other in ((NOD, pitch, yaw), (SHAKE, yaw, pitch)):
-            n = len(swings(main, MIN_SWING))
+            n = len(swings(main, self.tuning.threshold(name, MIN_SWING)))
             steady = max(other) - min(other) < DOMINANCE * (max(main) - min(main)) if n else False
             self.scores[name] = 0.5 * min(n, MIN_SWINGS) / MIN_SWINGS if steady else 0.0
             if steady and n >= MIN_SWINGS:

@@ -14,6 +14,7 @@ import actions
 import autostart
 import commands
 from custom_gestures import KIND_HAND, KIND_HEAD, KINDS, Recorder, validate_name
+from tuning import LABELS, LIMITS, TUNABLE, clean_value
 from version import FULL_VERSION
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
@@ -121,6 +122,8 @@ class Backend:
             },
             "actions": [{"id": k, "label": v, "param": k in actions.PARAM_ACTIONS} for k, v in actions.ACTIONS.items()],
             "limits": {k: list(v) for k, v in RANGES.items()},
+            "tuning": {"params": {g: list(p) for g, p in TUNABLE.items()}, "limits": {k: list(v) for k, v in LIMITS.items()},
+                       "labels": {k: list(v) for k, v in LABELS.items()}, "values": c.get("tuning", {})},
         }
 
     def perf(self):
@@ -249,6 +252,26 @@ class Backend:
         self.save(self.cfg)
         self._changed()
         return {"binding": value, "text": actions.binding_text(value)}
+
+    def set_tuning(self, body):
+        """כוונון מחווה: רגישות (sens) וזמן החזקה (hold), רק לערכים ששייכים למחווה. לא מעדכנים את הגרסה: הדף כבר מציג את הערך."""
+        gid = body.get("gesture")
+        params = TUNABLE.get(gid) if isinstance(gid, str) else None
+        if params is None:
+            raise ApiError("המחווה הזו לא מכווננת")
+        table = self.cfg.get("tuning")
+        if not isinstance(table, dict):
+            table = self.cfg["tuning"] = {}
+        entry = dict(table[gid]) if isinstance(table.get(gid), dict) else {}
+        for key in params:
+            if key in body:
+                try:
+                    entry[key] = clean_value(key, body[key])
+                except ValueError as e:
+                    raise ApiError(str(e))
+        table[gid] = entry
+        self.save(self.cfg)
+        return {"ok": True, "values": entry}
 
     def pick_file(self, _body):
         if self._pick is None:
@@ -465,7 +488,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(400, {"error": "json"})
         be = self.be
         routes = {"/api/set": be.set_value, "/api/control": be.set_control, "/api/binding": be.set_binding,
-                  "/api/custom": be.custom, "/api/update": be.update, "/api/pick-file": be.pick_file, "/api/quit": be.quit,
+                  "/api/tuning": be.set_tuning, "/api/custom": be.custom, "/api/update": be.update,
+                  "/api/pick-file": be.pick_file, "/api/quit": be.quit,
                   "/api/gaze": be.gaze,
                   "/api/bye": lambda b: (be.bye(), {"ok": True})[1]}
         handler = routes.get(url.path)
