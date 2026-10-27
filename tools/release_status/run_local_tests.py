@@ -24,7 +24,7 @@ HISTORY = HERE / "local-tests-history.json"
 # test_overlay.py is left out on purpose: it imports modules that do not exist in this layout (the same as in tests.yml).
 DEFAULT = ["test_signs", "test_release", "test_updater", "test_mouse_clicks", "test_settings", "test_commands", "test_custom_gestures",
            "test_head_gestures", "test_head_motion", "test_body_gestures", "test_eye_gestures", "test_face_expressions", "test_hand_motion",
-           "test_gaze", "test_diagnostics", "test_view_aids", "test_tray", "test_webui", "test_tuning", "test_tracker"]
+           "test_gaze", "test_diagnostics", "test_view_aids", "test_tray", "test_webui", "test_tuning", "test_mp_path", "test_tracker"]
 GUESS = 45          # seconds, for a test that has never run
 TAIL = 5            # lines of the running test that the page shows
 WRITE_EVERY = 0.4   # seconds between writes of the progress file while a test runs
