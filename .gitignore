@@ -15,3 +15,13 @@ dist_onefile/
 build_onefile/
 webview/
 instance.json
+# release dashboard: generated page, progress and working state
+tools/release_status/status.html
+tools/release_status/status-data.js
+tools/release_status/*.tmp
+tools/release_status/local-tests*.json
+tools/release_status/local-single.json
+tools/release_status/activity.json
+tools/release_status/cycle.json
+tools/release_status/todo.json
+tools/release_status/archive/
