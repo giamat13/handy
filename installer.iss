@@ -55,12 +55,82 @@ begin
   Result := ExpandConstant('{param:update|0}') = '1';
 end;
 
+var
+  ExistingPage: TInputOptionWizardPage;
+  RepairChosen: Boolean;
+  UninstallDone: Boolean;
+
+// the uninstaller of the copy that is already installed ('' when Handy 2 is not installed); same AppId as above
+function ExistingUninstaller: String;
+var
+  Key, S: String;
+begin
+  Key := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{B3A91C52-7D4E-4F68-A1C0-2E9D5F7A8B14}_is1';
+  S := '';
+  if not RegQueryStringValue(HKCU, Key, 'UninstallString', S) then
+    RegQueryStringValue(HKLM, Key, 'UninstallString', S);
+  Result := RemoveQuotes(S);
+end;
+
+// already installed: ask whether to update, repair or uninstall. Silent runs and the in-app updater skip the question and update.
+procedure InitializeWizard;
+begin
+  if ExistingUninstaller = '' then
+    Exit;
+  ExistingPage := CreateInputOptionPage(wpWelcome, 'Handy 2 is already installed', 'What do you want to do?',
+    'Choose an action:', True, False);
+  ExistingPage.Add('Update to version {#MyAppVersion}');
+  ExistingPage.Add('Repair (install all the program files again; your settings are kept)');
+  ExistingPage.Add('Uninstall (your settings are kept)');
+  ExistingPage.SelectedValueIndex := 0;
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := False;
+  if ExistingPage <> nil then
+    if PageID = ExistingPage.ID then
+      Result := WizardSilent or IsUpdateRun;
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  Code: Integer;
+begin
+  Result := True;
+  if ExistingPage = nil then
+    Exit;
+  if CurPageID <> ExistingPage.ID then
+    Exit;
+  RepairChosen := ExistingPage.SelectedValueIndex = 1;
+  if ExistingPage.SelectedValueIndex = 2 then
+  begin
+    Exec(ExistingUninstaller, '', '', SW_SHOW, ewWaitUntilTerminated, Code);
+    UninstallDone := True;
+    Result := False;
+    WizardForm.Close;   // nothing is left to install
+  end;
+end;
+
+procedure CancelButtonClick(CurPageID: Integer; var Cancel, Confirm: Boolean);
+begin
+  if UninstallDone then
+    Confirm := False;
+end;
+
 // The in-app updater saves a copy of the running program before it starts this installer. When all files are in place
 // we write done.flag; if it is missing afterwards (power loss, killed installer) the app puts the saved copy back.
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   D: String;
 begin
+  if (CurStep = ssInstall) and RepairChosen then
+  begin
+    // repair also drops the MediaPipe copy that mp_path.py makes for non-ASCII user names (it is made again at the next start)
+    DelTree(ExpandConstant('{commonappdata}\Handy2'), True, True, True);
+    DelTree(ExpandConstant('{commonpub}\Handy2'), True, True, True);
+    DelTree('C:\Handy2', True, True, True);
+  end;
   if CurStep = ssPostInstall then
   begin
     D := ExpandConstant('{localappdata}\Handy2\update');
